@@ -627,7 +627,8 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        $interaction->respondWithMessage("Processing your add run request ", true);
+        // $interaction->respondWithMessage("Processing your add run request ", true);
+        $interaction->acknowledge();
 
         DB::transaction(function () use ($interaction) {
 
@@ -662,7 +663,7 @@ class DiscordBotController extends Controller {
                 ]);
 
                 if ($run) {
-                    $this->announceRuns($run, $runsChannel);
+                    $this->announceRuns($run, $runsChannel, $interaction);
                 }
             }
         });
@@ -789,7 +790,7 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function announceRuns($runData, $runsChannel) {
+    protected function announceRuns($runData, $runsChannel, $interaction = null) {
 
         if ($runsChannel) {
 
@@ -797,12 +798,15 @@ class DiscordBotController extends Controller {
             if ($channel) {
                 $promise = $channel->sendMessage('', false, $this->runsTemplate($runData));
 
-                $promise->then(function ($message) use ($runData, $runsChannel) {
-                    Log::info('salam');
+                $promise->then(function ($message) use ($runData, $runsChannel, $interaction) {
                     $runData->channel_id = $runsChannel->id;
                     $runData->dmessage_id = $message->id;
                     $runData->dmessage_link = "https://discord.com/channels/" . $message->guild_id . "/" . $message->channel_id . "/" . $message->id;
                     $runData->save();
+
+                    if ($interaction) {
+                        $interaction->followUp("Run added successfully!" . $runData->dmessage_link);
+                    }
 
                 }, function ($e) {
                     Log::error($e);
@@ -901,7 +905,9 @@ class DiscordBotController extends Controller {
         }
 
         if ($isToday) {
-            $rows->whereToday('updated_at');
+            $startTime = $this->customDay()['startTime'];
+            $endTime = $this->customDay()['endTime'];
+            $rows->whereBetween('created_at', [$startTime, $endTime]);
         }
 
         $rows = $rows->get();
@@ -917,6 +923,8 @@ class DiscordBotController extends Controller {
         }
 
         $pendingRuns = $rows->where('paid', 0)->unique('id')->pluck('id')->join(',');
+
+        $totalRuns = $rows->sum('count');
 
         $paidBalanceT = $rows->where('paid', 1)
             ->whereIn('unit', ['T', 't'])
@@ -954,7 +962,8 @@ class DiscordBotController extends Controller {
             $paidBalanceK . " **K**\n\n" .
             "**Total**: \n" .
             $totalBalanceT . " **T**\n" .
-            $totalBalanceK . " **K**";
+            $totalBalanceK . " **K**\n\n" .
+            "**Runs Count**:" . $totalRuns;
 
         $embed = new Embed($this->discord);
         $embed->setTitle("**Butterfly Boost Balance**")
@@ -1021,5 +1030,18 @@ class DiscordBotController extends Controller {
         $text .= str_repeat("-", 132) . "\n";
 
         return $text;
+    }
+
+    protected function customDay() {
+        $currentDate = Carbon::now()->format('Y-m-d');
+        $tomarrowDate = Carbon::now()->addDay(1)->format('Y-m-d');
+
+        $startTime = $currentDate . " 07:00:00";
+        $endTime = $tomarrowDate . " 06:59:59";
+
+        return [
+            'startTime' => $startTime,
+            'endTime' => $endTime,
+        ];
     }
 }
