@@ -685,6 +685,7 @@ class DiscordBotController extends Controller {
                 $run->refresh();
                 $this->announceRuns($run, $runsChannel, $interaction);
 
+                $run->refresh();
                 $interaction->updateOriginalResponse($messageBuilder->setContent(
                     "Run added successfully! " . ($run->dmessage_link ?? '')
                 ));
