@@ -628,11 +628,12 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        // Acknowledge the interaction immediately (this is mandatory)
+        // Acknowledge the interaction immediately (thinking response)
         $interaction->acknowledge();
 
         // Start the database transaction for adding the run
         try {
+            // Simulate long-running operation by using follow-up message for delayed response
             DB::transaction(function () use ($interaction) {
                 // Extract options from the interaction
                 $options = $interaction->data->options;
@@ -678,19 +679,23 @@ class DiscordBotController extends Controller {
                         // Announce the new run in the channel
                         $this->announceRuns($run, $runsChannel, $interaction);
 
-                        // Respond with the result (success message)
-                        $interaction->respondWithMessage("Run added successfully! {$run->dmessage_link}");
+                        // Use follow-up for final response (after the database operation)
+                        $interaction->followUp("Run added successfully! {$run->dmessage_link}");
                     } else {
                         // Handle case where run creation fails
-                        $interaction->respondWithMessage("Failed to add the run. Please try again.");
+                        $interaction->followUp("Failed to add the run. Please try again.");
                     }
                 } else {
                     // Handle case where the "runs" channel is not found
-                    $interaction->respondWithMessage("No runs channel found. Please contact the admin.");
+                    $interaction->followUp("No runs channel found. Please contact the admin.");
                 }
             });
         } catch (\Exception $e) {
-            $interaction->respondWithMessage("An error occurred while processing your request. Please try again later.");
+            // Catch any errors during the database transaction and log them
+            \Log::error("Error adding run: " . $e->getMessage());
+
+            // Notify the user about the error
+            $interaction->followUp("An error occurred while processing your request. Please try again later.");
         }
     }
 
