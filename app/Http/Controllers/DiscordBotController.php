@@ -196,14 +196,17 @@ class DiscordBotController extends Controller {
 
         $this->discord->on(Event::MESSAGE_REACTION_ADD, function ($reaction, Discord $discord) {
             if (!$reaction?->member?->user->bot) {
-                $run = $this->findRun($reaction);
-                $this->handleReaction($reaction, $run);
+                if ($this->checkUser($reaction, 'reaction')) {
+                    Log::info($this->authUser);
+                    $run = $this->findRun($reaction);
+                    $this->handleReaction($reaction, $run);
+                }
             }
         });
 
         $this->discord->on(Event::INTERACTION_CREATE, function (Interaction $interaction, Discord $discord) {
             $messageBuilder = MessageBuilder::new ();
-            if (!$this->checkUser($interaction, true)) {
+            if (!$this->checkUser($interaction, 'command')) {
                 $interaction->respondWithMessage($messageBuilder->setContent('You do not have permission to use this command'), true);
                 return;
             }
@@ -223,11 +226,17 @@ class DiscordBotController extends Controller {
         $this->discord->run();
     }
 
-    protected function checkUser($message, $isCommand = false) {
-        $author = $isCommand ? $message->user->id : $message->author->id;
+    protected function checkUser($message, $method = 'message') {
+
+        $author = match ($method) {
+            'message' => $message->author->id,
+            'command' => $message->user->id,
+            'reaction' => $message->user_id,
+            default => null,
+        };
 
         $this->authUser = User::where('duser_id', $author)->first();
-        return $this->authUser !== null; // Cleaner boolean check
+        return $this->authUser !== null;
     }
 
     protected function checkCommands($message) {
@@ -432,8 +441,11 @@ class DiscordBotController extends Controller {
     }
 
     protected function removeRun($message) {
+
         DB::transaction(function () use ($message) {
             $messageContent = $message->content;
+
+            $authUser = $this->authUser;
 
             $pattern = '/!rrun\s\w+/';
 
@@ -450,16 +462,16 @@ class DiscordBotController extends Controller {
 
             if ($run) {
                 $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run) {
+                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $authUser) {
 
                     $text = $run->message;
-                    $text .= "\n\n❌ **Run removed by " . $this->authUser->name . '** ❌';
+                    $text .= "\n\n❌ **Run removed by " . "<@{$authUser->duser_id}>" . '** ❌';
 
                     $embed = new Embed($this->discord);
                     $embed->setTitle("**Butterfly Boost Attendance**")
                         ->setColor(0xdf3079)
                         ->setDescription($text)
-                        ->setFooter("Attendance by " . $this->authUser->name)
+                        ->setFooter("Attendance by {$authUser->name}")
                         ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
                     $messageBuilder = MessageBuilder::new ()
@@ -482,6 +494,7 @@ class DiscordBotController extends Controller {
     }
 
     protected function editRun($message) {
+
         DB::transaction(function () use ($message) {
 
             $messageContent = $message->content;
@@ -554,17 +567,19 @@ class DiscordBotController extends Controller {
 
                 $run->refresh();
 
+                $payUser = User::where('id', $run->pay_user)->first();
+
                 $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run) {
+                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser) {
 
                     $text = $run->message;
-                    $text .= "\n**Edited by **" . $this->authUser->username;
+                    $text .= "\n**Edited by ** <@{$this->authUser->duser_id}>";
                     $text .= "\n**Edited at**: " . $run->updated_at;
 
                     $color = 0x483868;
                     if ($run->paid) {
                         $color = 0x4caf50;
-                        $text .= "\n\n✅ **Run paid by " . $run->pay_user ?? '-' . '** ✅';
+                        $text .= "\n\n✅ **Run paid by <@$payUser->duser_id>✅";
                         $text .= "\n**Paid at**: " . $run->paid_at;
 
                     }
@@ -573,7 +588,7 @@ class DiscordBotController extends Controller {
                     $embed->setTitle("**Butterfly Boost Attendance**")
                         ->setColor($color)
                         ->setDescription($text)
-                        ->setFooter("Attendance by " . $run->user->name)
+                        ->setFooter("Attendance by {$run->user->name}")
                         ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
                     $messageBuilder = MessageBuilder::new ()
@@ -616,7 +631,7 @@ class DiscordBotController extends Controller {
             $embed->setTitle("**Butterfly Boost Attendance**")
                 ->setColor(0x483868)
                 ->setDescription($text)
-                ->setFooter("Attendance by " . $run->user->name)
+                ->setFooter("Attendance by {$run->user->name}")
                 ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
             $messageBuilder = MessageBuilder::new ()
@@ -668,9 +683,10 @@ class DiscordBotController extends Controller {
 
     protected function editRunWithCommand($interaction) {
         $interaction->respondWithMessage("Processing your request... https://discord.com/channels/878241085535715380/1311410753965920367", true);
-
         DB::transaction(function () use ($interaction) {
             $options = $interaction->data->options;
+
+            $authUser = $this->authUser;
 
             $boostersName = explode('-', $options['boosters_name']->value);
             $boostersCount = count($boostersName);
@@ -704,17 +720,19 @@ class DiscordBotController extends Controller {
                     ]);
                     $run->refresh();
 
+                    $payUser = User::where('id', $run->pay_user)->first();
+
                     $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                    $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $interaction) {
+                    $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser, $authUser) {
 
                         $text = $run->message;
-                        $text .= "\n**Edited by **" . $this->authUser?->username ?? '-';
+                        $text .= "\n**Edited by **<@{$authUser->duser_id}>";
                         $text .= "\n**Edited at**: " . $run->updated_at;
 
                         $color = 0x483868;
                         if ($run->paid) {
                             $color = 0x4caf50;
-                            $text .= "\n\n✅ **Run paid by " . $run->pay_user ?? '-' . '** ✅';
+                            $text .= "\n\n✅ **Run paid by <@{$payUser->duser_id}>** ✅";
                             $text .= "\n**Paid at**: " . $run->paid_at;
 
                         }
@@ -723,7 +741,7 @@ class DiscordBotController extends Controller {
                         $embed->setTitle("**Butterfly Boost Attendance**")
                             ->setColor($color)
                             ->setDescription($text)
-                            ->setFooter("Attendance by " . $run->user->name)
+                            ->setFooter("Attendance by {$run->user->name}")
                             ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
                         $messageBuilder = MessageBuilder::new ()
@@ -749,13 +767,14 @@ class DiscordBotController extends Controller {
     }
 
     protected function changePaidRun($run, $reaction) {
+        Log::info($this->authUser);
         if ($run->paid == 1) {
             return;
         }
 
         $run->paid = 1;
         $run->paid_at = now();
-        $run->pay_user = $reaction->member->username;
+        $run->pay_user = $this->authUser->id;
         $run->save();
 
         $payUser = $reaction->member;
@@ -771,7 +790,7 @@ class DiscordBotController extends Controller {
             $embed->setTitle("**Butterfly Boost Attendance**")
                 ->setColor(0x4caf50)
                 ->setDescription($text)
-                ->setFooter("Attendance by " . $run->user->name)
+                ->setFooter("Attendance by {$run->user->name}")
                 ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
             $messageBuilder = MessageBuilder::new ()
@@ -842,7 +861,7 @@ class DiscordBotController extends Controller {
         $embed->setTitle("**Butterfly Boost Attendance**")
             ->setColor(0x483868)
             ->setDescription($text)
-            ->setFooter("Attendance by " . $runData->user->name)
+            ->setFooter("Attendance by {$runData->user->name}")
             ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
         return $embed;
@@ -856,9 +875,7 @@ class DiscordBotController extends Controller {
     protected function handleReaction($reaction, $run) {
         switch ($reaction?->emoji) {
         case '✅':
-            Log::info($run);
             if ($run) {
-                sleep(6);
                 $this->changePaidRun($run, $reaction);
             }
             break;
