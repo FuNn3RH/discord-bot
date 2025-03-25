@@ -633,7 +633,6 @@ class DiscordBotController extends Controller {
 
         // Start the database transaction for adding the run
         try {
-            // Simulate long-running operation by using follow-up message for delayed response
             DB::transaction(function () use ($interaction) {
                 // Extract options from the interaction
                 $options = $interaction->data->options;
@@ -679,23 +678,32 @@ class DiscordBotController extends Controller {
                         // Announce the new run in the channel
                         $this->announceRuns($run, $runsChannel, $interaction);
 
-                        // Use follow-up for final response (after the database operation)
-                        $interaction->followUp("Run added successfully! {$run->dmessage_link}");
+                        // Create the success message using MessageBuilder
+                        $message = MessageBuilder::new ()
+                            ->setContent("Run added successfully! {$run->dmessage_link}");
+
+                        // Respond with the result
+                        $interaction->respondWithMessage($message);
                     } else {
                         // Handle case where run creation fails
-                        $interaction->followUp("Failed to add the run. Please try again.");
+                        $message = MessageBuilder::new ()
+                            ->setContent("Failed to add the run. Please try again.");
+                        $interaction->respondWithMessage($message);
                     }
                 } else {
                     // Handle case where the "runs" channel is not found
-                    $interaction->followUp("No runs channel found. Please contact the admin.");
+                    $message = MessageBuilder::new ()
+                        ->setContent("No runs channel found. Please contact the admin.");
+                    $interaction->respondWithMessage($message);
                 }
             });
         } catch (\Exception $e) {
             // Catch any errors during the database transaction and log them
-            \Log::error("Error adding run: " . $e->getMessage());
 
             // Notify the user about the error
-            $interaction->followUp("An error occurred while processing your request. Please try again later.");
+            $message = MessageBuilder::new ()
+                ->setContent("An error occurred while processing your request. Please try again later.");
+            $interaction->respondWithMessage($message);
         }
     }
 
@@ -1077,6 +1085,6 @@ class DiscordBotController extends Controller {
     }
 
     protected function versionOut($message) {
-        $message->reply(2);
+        $message->reply(3);
     }
 }
