@@ -628,82 +628,46 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        // Acknowledge the interaction immediately (thinking response)
-        $interaction->acknowledge();
+        $interaction->acknowledgeWithResponse(); // Defer response
 
-        // Start the database transaction for adding the run
         try {
-            DB::transaction(function () use ($interaction) {
-                // Extract options from the interaction
-                $options = $interaction->data->options;
+            $options = $interaction->data->options;
+            $boostersName = explode('-', $options['boosters_name']->value);
+            $boostersCount = count($boostersName);
 
-                // Process the boosters' names
-                $boostersName = explode('-', $options['boosters_name']->value);
-                $boostersCount = count($boostersName);
+            $runPot = (int) $options['run_pot']->value;
+            $runPrice = number_format($runPot / $boostersCount, 2);
+            $runUnit = $options['unit']->value ?? '?';
 
-                // Calculate the run price
-                $runPot = (int) $options['run_pot']->value;
-                $runPrice = $runPot / $boostersCount;
-                $runPrice = number_format($runPrice, 2);
+            $runsChannel = Channel::where('channel_name', 'runs')->first();
+            if (!$runsChannel) {
+                $interaction->respondWithMessage(MessageBuilder::new ()->setContent("No runs channel found."));
+                return;
+            }
 
-                // Get the unit (defaulting to '?' if not set)
-                $runUnit = $options['unit']->value ?? '?';
-
-                // Get the channel for runs (this could be a predefined "runs" channel)
-                $runsChannel = Channel::where('channel_name', 'runs')->first();
-
-                if ($runsChannel) {
-                    // Create the new Run entry in the database
-                    $run = Run::create([
-                        'count' => $options['run_count']->value,
-                        'level' => $options['run_level']->value,
-                        'dungeons' => $options['dungeons']->value,
-                        'boosters' => $boostersName,
-                        'boosters_count' => $boostersCount,
-                        'price' => $runPrice,
-                        'unit' => $runUnit,
-                        'pot' => $runPot,
-                        'adv' => $options['advertiser']->value,
-                        'note' => $options['additional_note']?->value,
-                        'user_id' => $this->authUser->id,
-                        'channel_id' => $runsChannel->id,
-                        'dmessage_id' => null,
-                        'dmessage_link' => null,
-                    ]);
-
-                    if ($run) {
-                        // Refresh the Run instance to get the updated data
-                        $run->refresh();
-
-                        // Announce the new run in the channel
-                        $this->announceRuns($run, $runsChannel, $interaction);
-
-                        // Create the success message using MessageBuilder
-                        $message = MessageBuilder::new ()
-                            ->setContent("Run added successfully! {$run->dmessage_link}");
-
-                        // Respond with the result
-                        $interaction->respondWithMessage($message);
-                    } else {
-                        // Handle case where run creation fails
-                        $message = MessageBuilder::new ()
-                            ->setContent("Failed to add the run. Please try again.");
-                        $interaction->respondWithMessage($message);
-                    }
-                } else {
-                    // Handle case where the "runs" channel is not found
-                    $message = MessageBuilder::new ()
-                        ->setContent("No runs channel found. Please contact the admin.");
-                    $interaction->respondWithMessage($message);
-                }
+            $run = DB::transaction(function () use ($options, $boostersName, $boostersCount, $runPrice, $runUnit, $runPot, $runsChannel) {
+                return Run::create([
+                    'count' => $options['run_count']->value,
+                    'level' => $options['run_level']->value,
+                    'dungeons' => $options['dungeons']->value,
+                    'boosters' => $boostersName,
+                    'boosters_count' => $boostersCount,
+                    'price' => $runPrice,
+                    'unit' => $runUnit,
+                    'pot' => $runPot,
+                    'adv' => $options['advertiser']->value,
+                    'note' => $options['additional_note']?->value,
+                    'user_id' => $this->authUser->id,
+                    'channel_id' => $runsChannel->id,
+                    'dmessage_id' => null,
+                    'dmessage_link' => null,
+                ]);
             });
-        } catch (\Exception $e) {
-            // Catch any errors during the database transaction and log them
 
-            // Notify the user about the error
-            $message = MessageBuilder::new ()
-                ->setContent("An error occurred while processing your request. Please try again later.");
-            $interaction->respondWithMessage($message);
+            $this->announceRuns($run, $runsChannel, $interaction);
+            $interaction->respondWithMessage(MessageBuilder::new ()->setContent("Run added successfully! {$run->dmessage_link}"));
+        } catch (\Exception $e) {
+            $interaction->respondWithMessage(MessageBuilder::new ()->setContent("Error: {$e->getMessage()}"));
         }
     }
 
