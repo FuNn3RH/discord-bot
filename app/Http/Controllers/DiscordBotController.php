@@ -628,7 +628,7 @@ class DiscordBotController extends Controller {
 
     protected function addRunWithCommand($interaction) {
         // $interaction->respondWithMessage("Processing your add run request ", true);
-        $interaction->acknowledge();
+        $interaction->acknowledge(true);
 
         DB::transaction(function () use ($interaction) {
 
@@ -665,9 +665,15 @@ class DiscordBotController extends Controller {
                 if ($run) {
                     $run->refresh();
 
-                    $this->announceRuns($run, $runsChannel, $interaction);
-                    $interaction->followUp("Run added successfully!" . $run->dmessage_link);
+                    $this->announceRuns($run, $runsChannel);
+
+                    $interaction->followUp("Run added successfully! {$run->dmessage_link}");
+                } else {
+
+                    $interaction->followUp("Failed to add the run. Please try again.");
                 }
+            } else {
+                $interaction->followUp("No runs channel found. Please contact the admin.");
             }
         });
 
