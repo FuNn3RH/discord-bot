@@ -250,7 +250,6 @@ class DiscordBotController extends Controller {
             '!unpaids' => $this->myUnPaids($message),
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
-            '!v' => $this->versionOut($message),
             default => null,
         };
     }
@@ -628,61 +627,49 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        $interaction->acknowledge();
+        $interaction->respondWithMessage("Processing your request... https://discord.com/channels/878241085535715380/1311410753965920367", true);
 
-        try {
-            $run = DB::transaction(function () use ($interaction) {
-                $options = $interaction->data->options;
-                $boostersName = explode('-', $options['boosters_name']->value);
-                $boostersCount = count($boostersName);
+        DB::transaction(function () use ($interaction) {
+            $options = $interaction->data->options;
+            $boostersName = explode('-', $options['boosters_name']->value);
+            $boostersCount = count($boostersName);
 
-                if ($boostersCount === 0) {
-                    throw new \Exception("No boosters specified.");
-                }
+            if ($boostersCount === 0) {
+                throw new \Exception("No boosters specified.");
+            }
 
-                $runPot = (int) $options['run_pot']->value;
-                $runPrice = number_format($runPot / $boostersCount, 2);
-                $runUnit = $options['unit']->value ?? '?';
-                $runsChannel = Channel::where('channel_name', 'runs')->firstOrFail();
+            $runPot = (int) $options['run_pot']->value;
+            $runPrice = number_format($runPot / $boostersCount, 2);
+            $runUnit = $options['unit']->value ?? '?';
+            $runsChannel = Channel::where('channel_name', 'runs')->firstOrFail();
 
-                $run = Run::create([
-                    'count' => $options['run_count']->value,
-                    'level' => $options['run_level']->value,
-                    'dungeons' => $options['dungeons']->value,
-                    'boosters' => $boostersName,
-                    'boosters_count' => $boostersCount,
-                    'price' => $runPrice,
-                    'unit' => $runUnit,
-                    'pot' => $runPot,
-                    'adv' => $options['advertiser']->value,
-                    'note' => $options['additional_note']?->value,
-                    'user_id' => $this->authUser->id,
-                    'channel_id' => $runsChannel->id,
-                    'dmessage_id' => null,
-                    'dmessage_link' => null,
-                ]);
+            $run = Run::create([
+                'count' => $options['run_count']->value,
+                'level' => $options['run_level']->value,
+                'dungeons' => $options['dungeons']->value,
+                'boosters' => $boostersName,
+                'boosters_count' => $boostersCount,
+                'price' => $runPrice,
+                'unit' => $runUnit,
+                'pot' => $runPot,
+                'adv' => $options['advertiser']->value,
+                'note' => $options['additional_note']?->value,
+                'user_id' => $this->authUser->id,
+                'channel_id' => $runsChannel->id,
+                'dmessage_id' => null,
+                'dmessage_link' => null,
+            ]);
 
-                $run->refresh();
-                $this->announceRuns($run, $runsChannel, $interaction);
-                return $run;
-            });
+            $run->refresh();
+            $this->announceRuns($run, $runsChannel, $interaction);
+        });
 
-            $message = MessageBuilder::new ()
-                ->setContent("Run added successfully! {$run->dmessage_link}");
-            $interaction->respondWithMessage($message);
-        } catch (\Exception $e) {
-            error_log("Error: " . $e->getMessage());
-            $message = MessageBuilder::new ()
-                ->setContent("Error: {$e->getMessage()}");
-            $interaction->respondWithMessage($message);
-        }
     }
 
     protected function editRunWithCommand($interaction) {
-        $interaction->acknowledgeWithResponse();
-        $messageBuilder = MessageBuilder::new ();
+        $interaction->respondWithMessage("Processing your request... https://discord.com/channels/878241085535715380/1311410753965920367", true);
 
-        DB::transaction(function () use ($interaction, $messageBuilder) {
+        DB::transaction(function () use ($interaction) {
             $options = $interaction->data->options;
 
             $boostersName = explode('-', $options['boosters_name']->value);
@@ -746,9 +733,6 @@ class DiscordBotController extends Controller {
                         $discordMessage->edit($messageBuilder);
 
                         $run->refresh();
-                        $interaction->updateOriginalResponse($messageBuilder->setContent(
-                            "Run added successfully! " . ($run->dmessage_link ?? '')
-                        ));
                     });
 
                 }
@@ -878,12 +862,6 @@ class DiscordBotController extends Controller {
                 $this->changePaidRun($run, $reaction);
             }
             break;
-        // case '❌':
-        //     $run->paid = 0;
-        //     $run->deleted_at = now();
-        //     $run->save();
-        //     break;
-
         default:
             # code...
             break;
