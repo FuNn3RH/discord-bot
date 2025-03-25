@@ -628,7 +628,7 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        $interaction->acknowledge()->then(function () use ($interaction) {
+        $interaction->acknowledgeWithResponse()->then(function () use ($interaction) {
 
             try {
                 $options = $interaction->data->options;
