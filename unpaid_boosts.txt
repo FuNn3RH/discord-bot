@@ -1,0 +1,15 @@
+ID  | Info                 | Pot    | Cut      | Boosters                                      | Dungeons             | Date        
+------------------------------------------------------------------------------------------------------------------------------------
+36  | 1x10 GodofWar        | 475T   | 158.33T  | Mmdraven-Amirparse-Funn3r                     | CB                   | 03-18 18:35 
+43  | 1x10 Godofwar        | 850T   | 212.50T  | Amirparse-Mmdraven-Funn3r-Percivalw_92611     | ML                   | 03-19 02:34 
+44  | 1x10 Godofwar        | 850T   | 212.50T  | Amirparse-Mmdraven-Funn3r-Afshin8445          | Flood                | 03-19 02:35 
+45  | 1x10 GodofWar        | 850T   | 283.33T  | Amirparse-Funn3r-Mmdraven                     | FG                   | 03-22 19:45 
+47  | 1x8 Godofwar         | 1700T  | 425.00T  | Amirparse-Mmdraven-Silent-Invisible4469       | OLD                  | 03-22 20:36 
+48  | 1x8 Godofwar         | 1700T  | 425.00T  | Amirparse-Mmdraven-Funner-Effect4502          | OLD                  | 03-22 20:37 
+49  | 1x8 Goodofwar        | 1200T  | 300.00T  | Amirparse-Mmdraven-Funner-Shoaib              | OLD                  | 03-22 20:41 
+50  | 1x10 Godofwar        | 1800T  | 450.00T  | Amirparse-Mmdraven-Funner-Amirreza            | OLD                  | 03-22 20:41 
+51  | 1x10 Godofwar        | 1600T  | 400.00T  | Amirparse-Mmdraven-Funner-Axispirit           | OLD                  | 03-22 20:41 
+52  | 1x10 FTG             | 1050T  | 262.50T  | Amirparse-Raven-Funner-Deadboy47              | CB                   | 03-22 20:43 
+53  | 1x12 Aegon           | 1000T  | 250.00T  | Amirparse-Raven-Thegilimish-Guts              | FLOOD                | 03-22 20:44 
+54  | 1x13 Crazy           | 800K   | 200.00K  | Amirparse-Raven-Guts-General                  | FLOOD                | 03-22 20:44 
+------------------------------------------------------------------------------------------------------------------------------------
