@@ -1070,4 +1070,8 @@ class DiscordBotController extends Controller {
             'endTime' => $endTime,
         ];
     }
+
+    protected function versionOut($message) {
+        $message->reply(1);
+    }
 }
