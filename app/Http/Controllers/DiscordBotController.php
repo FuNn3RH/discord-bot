@@ -702,9 +702,10 @@ class DiscordBotController extends Controller {
     }
 
     protected function editRunWithCommand($interaction) {
-        $interaction->respondWithMessage("Processing your edit run request ", true);
+        $interaction->acknowledgeWithResponse();
+        $messageBuilder = MessageBuilder::new ();
 
-        DB::transaction(function () use ($interaction) {
+        DB::transaction(function () use ($interaction, $messageBuilder) {
             $options = $interaction->data->options;
 
             $boostersName = explode('-', $options['boosters_name']->value);
@@ -767,7 +768,10 @@ class DiscordBotController extends Controller {
 
                         $discordMessage->edit($messageBuilder);
 
-                        $interaction->followUp("Run edited successfully!" . $run->dmessage_link);
+                        $run->refresh();
+                        $interaction->updateOriginalResponse($messageBuilder->setContent(
+                            "Run added successfully! " . ($run->dmessage_link ?? '')
+                        ));
                     });
 
                 }
