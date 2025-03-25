@@ -628,22 +628,22 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        // Defer the response to give us 15 minutes
-        $interaction->acknowledgeWithResponse();
+        $interaction->acknowledge();
 
         try {
             $run = DB::transaction(function () use ($interaction) {
                 $options = $interaction->data->options;
                 $boostersName = explode('-', $options['boosters_name']->value);
                 $boostersCount = count($boostersName);
+
+                if ($boostersCount === 0) {
+                    throw new \Exception("No boosters specified.");
+                }
+
                 $runPot = (int) $options['run_pot']->value;
                 $runPrice = number_format($runPot / $boostersCount, 2);
                 $runUnit = $options['unit']->value ?? '?';
-                $runsChannel = Channel::where('channel_name', 'runs')->first();
-
-                if (!$runsChannel) {
-                    throw new \Exception("No runs channel found. Please contact the admin.");
-                }
+                $runsChannel = Channel::where('channel_name', 'runs')->firstOrFail();
 
                 $run = Run::create([
                     'count' => $options['run_count']->value,
@@ -662,21 +662,16 @@ class DiscordBotController extends Controller {
                     'dmessage_link' => null,
                 ]);
 
-                if (!$run) {
-                    throw new \Exception("Failed to add the run.");
-                }
-
                 $run->refresh();
                 $this->announceRuns($run, $runsChannel, $interaction);
                 return $run;
             });
 
-            // Single response on success
             $message = MessageBuilder::new ()
                 ->setContent("Run added successfully! {$run->dmessage_link}");
             $interaction->respondWithMessage($message);
         } catch (\Exception $e) {
-            // Single response on error
+            error_log("Error: " . $e->getMessage());
             $message = MessageBuilder::new ()
                 ->setContent("Error: {$e->getMessage()}");
             $interaction->respondWithMessage($message);
@@ -809,7 +804,7 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function announceRuns($runData, $runsChannel, $interaction = null) {
+    protected function announceRuns($runData, $runsChannel) {
 
         if ($runsChannel) {
 
@@ -817,7 +812,7 @@ class DiscordBotController extends Controller {
             if ($channel) {
                 $promise = $channel->sendMessage('', false, $this->runsTemplate($runData));
 
-                $promise->then(function ($message) use ($runData, $runsChannel, $interaction) {
+                $promise->then(function ($message) use ($runData, $runsChannel) {
                     $runData->channel_id = $runsChannel->id;
                     $runData->dmessage_id = $message->id;
                     $runData->dmessage_link = "https://discord.com/channels/" . $message->guild_id . "/" . $message->channel_id . "/" . $message->id;
