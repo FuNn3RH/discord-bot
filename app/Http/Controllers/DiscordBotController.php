@@ -663,7 +663,10 @@ class DiscordBotController extends Controller {
                 ]);
 
                 if ($run) {
+                    $run->refresh();
+
                     $this->announceRuns($run, $runsChannel, $interaction);
+                    $interaction->followUp("Run added successfully!" . $run->dmessage_link);
                 }
             }
         });
@@ -709,7 +712,7 @@ class DiscordBotController extends Controller {
                     $run->refresh();
 
                     $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                    $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run) {
+                    $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $interaction) {
 
                         $text = $run->message;
                         $text .= "\n**Edited by **" . $this->authUser?->username ?? '-';
@@ -735,6 +738,8 @@ class DiscordBotController extends Controller {
                             ->addEmbed($embed);
 
                         $discordMessage->edit($messageBuilder);
+
+                        $interaction->followUp("Run edited successfully!" . $run->dmessage_link);
                     });
 
                 }
@@ -803,10 +808,6 @@ class DiscordBotController extends Controller {
                     $runData->dmessage_id = $message->id;
                     $runData->dmessage_link = "https://discord.com/channels/" . $message->guild_id . "/" . $message->channel_id . "/" . $message->id;
                     $runData->save();
-
-                    if ($interaction) {
-                        $interaction->followUp("Run added successfully!" . $runData->dmessage_link);
-                    }
 
                 }, function ($e) {
                     Log::error($e);
