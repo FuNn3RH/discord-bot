@@ -14,7 +14,6 @@ use Discord\Parts\Interactions\Command\Option;
 use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
 use Discord\WebSockets\Intents;
-use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -629,76 +628,70 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        try {
-            // Acknowledge immediately with a deferred response
-            $interaction->acknowledgeWithResponse();
-            $messageBuilder = MessageBuilder::new ();
+        // Acknowledge the interaction immediately (this is mandatory)
+        $interaction->acknowledge();
 
-            DB::transaction(function () use ($interaction, $messageBuilder) {
+        // Start the database transaction for adding the run
+        try {
+            DB::transaction(function () use ($interaction) {
+                // Extract options from the interaction
                 $options = $interaction->data->options;
 
-                // Validate required fields
-                if (!isset($options['boosters_name']) || !isset($options['run_pot'])) {
-                    throw new Exception("Missing required fields");
-                }
-
+                // Process the boosters' names
                 $boostersName = explode('-', $options['boosters_name']->value);
                 $boostersCount = count($boostersName);
 
-                // Validate boosters
-                if ($boostersCount === 0) {
-                    throw new Exception("No boosters specified");
-                }
-
+                // Calculate the run price
                 $runPot = (int) $options['run_pot']->value;
                 $runPrice = $runPot / $boostersCount;
                 $runPrice = number_format($runPrice, 2);
 
+                // Get the unit (defaulting to '?' if not set)
                 $runUnit = $options['unit']->value ?? '?';
 
+                // Get the channel for runs (this could be a predefined "runs" channel)
                 $runsChannel = Channel::where('channel_name', 'runs')->first();
-                if (!$runsChannel) {
-                    throw new Exception("Runs channel not found");
+
+                if ($runsChannel) {
+                    // Create the new Run entry in the database
+                    $run = Run::create([
+                        'count' => $options['run_count']->value,
+                        'level' => $options['run_level']->value,
+                        'dungeons' => $options['dungeons']->value,
+                        'boosters' => $boostersName,
+                        'boosters_count' => $boostersCount,
+                        'price' => $runPrice,
+                        'unit' => $runUnit,
+                        'pot' => $runPot,
+                        'adv' => $options['advertiser']->value,
+                        'note' => $options['additional_note']?->value,
+                        'user_id' => $this->authUser->id,
+                        'channel_id' => $runsChannel->id,
+                        'dmessage_id' => null,
+                        'dmessage_link' => null,
+                    ]);
+
+                    if ($run) {
+                        // Refresh the Run instance to get the updated data
+                        $run->refresh();
+
+                        // Announce the new run in the channel
+                        $this->announceRuns($run, $runsChannel, $interaction);
+
+                        // Respond with the result (success message)
+                        $interaction->respondWithMessage("Run added successfully! {$run->dmessage_link}");
+                    } else {
+                        // Handle case where run creation fails
+                        $interaction->respondWithMessage("Failed to add the run. Please try again.");
+                    }
+                } else {
+                    // Handle case where the "runs" channel is not found
+                    $interaction->respondWithMessage("No runs channel found. Please contact the admin.");
                 }
-
-                $run = Run::create([
-                    'count' => $options['run_count']->value ?? 1,
-                    'level' => $options['run_level']->value ?? 0,
-                    'dungeons' => $options['dungeons']->value ?? 'Unknown',
-                    'boosters' => $boostersName,
-                    'boosters_count' => $boostersCount,
-                    'price' => $runPrice,
-                    'unit' => $runUnit,
-                    'pot' => $runPot,
-                    'adv' => $options['advertiser']->value ?? 'Unknown',
-                    'note' => $options['additional_note']?->value,
-                    'user_id' => $this->authUser->id,
-                    'channel_id' => $runsChannel->id,
-                    'dmessage_id' => null,
-                    'dmessage_link' => null,
-                ]);
-
-                if (!$run) {
-                    throw new Exception("Failed to create run");
-                }
-
-                $run->refresh();
-                $this->announceRuns($run, $runsChannel, $interaction);
-
-                $run->refresh();
-                $interaction->updateOriginalResponse($messageBuilder->setContent(
-                    "Run added successfully! " . ($run->dmessage_link ?? '')
-                ));
             });
-        } catch (Exception $e) {
-            $errorMessage = "Error adding run: " . $e->getMessage();
-            try {
-                $interaction->updateOriginalResponse($messageBuilder->setContent($errorMessage));
-            } catch (Exception $followUpError) {
-                $interaction->channel->sendMessage($messageBuilder->setContent($errorMessage));
-            }
+        } catch (\Exception $e) {
+            $interaction->respondWithMessage("An error occurred while processing your request. Please try again later.");
         }
-
     }
 
     protected function editRunWithCommand($interaction) {
@@ -1079,6 +1072,6 @@ class DiscordBotController extends Controller {
     }
 
     protected function versionOut($message) {
-        $message->reply(1);
+        $message->reply(2);
     }
 }
