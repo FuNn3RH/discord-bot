@@ -14,6 +14,7 @@ use Discord\Parts\Interactions\Command\Option;
 use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
 use Discord\WebSockets\Intents;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -627,55 +628,73 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        // $interaction->respondWithMessage("Processing your add run request ", true);
-        $interaction->acknowledge(true);
+        try {
+            // Acknowledge immediately with a deferred response
+            $interaction->acknowledgeWithResponse();
 
-        DB::transaction(function () use ($interaction) {
+            DB::transaction(function () use ($interaction) {
+                $options = $interaction->data->options;
 
-            $options = $interaction->data->options;
+                // Validate required fields
+                if (!isset($options['boosters_name']) || !isset($options['run_pot'])) {
+                    throw new Exception("Missing required fields");
+                }
 
-            $boostersName = explode('-', $options['boosters_name']->value);
-            $boostersCount = count($boostersName);
+                $boostersName = explode('-', $options['boosters_name']->value);
+                $boostersCount = count($boostersName);
 
-            $runPot = (int) $options['run_pot']->value;
-            $runPrice = $runPot / $boostersCount;
-            $runPrice = number_format($runPrice, 2);
+                // Validate boosters
+                if ($boostersCount === 0) {
+                    throw new Exception("No boosters specified");
+                }
 
-            $runUnit = $options['unit']->value;
+                $runPot = (int) $options['run_pot']->value;
+                $runPrice = $runPot / $boostersCount;
+                $runPrice = number_format($runPrice, 2);
 
-            $runsChannel = Channel::where('channel_name', 'runs')->first();
-            if ($runsChannel) {
+                $runUnit = $options['unit']->value ?? '?';
+
+                $runsChannel = Channel::where('channel_name', 'runs')->first();
+                if (!$runsChannel) {
+                    throw new Exception("Runs channel not found");
+                }
+
                 $run = Run::create([
-                    'count' => $options['run_count']->value,
-                    'level' => $options['run_level']->value,
-                    'dungeons' => $options['dungeons']->value,
+                    'count' => $options['run_count']->value ?? 1,
+                    'level' => $options['run_level']->value ?? 0,
+                    'dungeons' => $options['dungeons']->value ?? 'Unknown',
                     'boosters' => $boostersName,
                     'boosters_count' => $boostersCount,
                     'price' => $runPrice,
-                    'unit' => $runUnit ?? '?',
+                    'unit' => $runUnit,
                     'pot' => $runPot,
-                    'adv' => $options['advertiser']->value,
+                    'adv' => $options['advertiser']->value ?? 'Unknown',
                     'note' => $options['additional_note']?->value,
                     'user_id' => $this->authUser->id,
-                    'channel_id' => $runsChannel?->id,
+                    'channel_id' => $runsChannel->id,
                     'dmessage_id' => null,
                     'dmessage_link' => null,
                 ]);
 
-                if ($run) {
-                    $run->refresh();
-
-                    $this->announceRuns($run, $runsChannel);
-
-                    $interaction->followUp("Run added successfully! {$run->dmessage_link}");
-                } else {
-
-                    $interaction->followUp("Failed to add the run. Please try again.");
+                if (!$run) {
+                    throw new Exception("Failed to create run");
                 }
-            } else {
-                $interaction->followUp("No runs channel found. Please contact the admin.");
+
+                $run->refresh();
+                $this->announceRuns($run, $runsChannel, $interaction);
+
+                $interaction->updateOriginalResponse(
+                    "Run added successfully! " . ($run->dmessage_link ?? '')
+                );
+            });
+        } catch (Exception $e) {
+            $errorMessage = "Error adding run: " . $e->getMessage();
+            try {
+                $interaction->updateOriginalResponse($errorMessage);
+            } catch (Exception $followUpError) {
+                $interaction->channel->sendMessage($errorMessage);
             }
-        });
+        }
 
     }
 
