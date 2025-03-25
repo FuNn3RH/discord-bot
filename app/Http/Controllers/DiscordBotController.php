@@ -251,6 +251,7 @@ class DiscordBotController extends Controller {
             '!unpaids' => $this->myUnPaids($message),
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
+            '!v' => $this->versionOut($message),
             default => null,
         };
     }
