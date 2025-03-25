@@ -632,8 +632,9 @@ class DiscordBotController extends Controller {
         try {
             // Acknowledge immediately with a deferred response
             $interaction->acknowledgeWithResponse();
+            $messageBuilder = MessageBuilder::new ();
 
-            DB::transaction(function () use ($interaction) {
+            DB::transaction(function () use ($interaction, $messageBuilder) {
                 $options = $interaction->data->options;
 
                 // Validate required fields
@@ -684,16 +685,16 @@ class DiscordBotController extends Controller {
                 $run->refresh();
                 $this->announceRuns($run, $runsChannel, $interaction);
 
-                $interaction->updateOriginalResponse(
+                $interaction->updateOriginalResponse($messageBuilder->setContent(
                     "Run added successfully! " . ($run->dmessage_link ?? '')
-                );
+                ));
             });
         } catch (Exception $e) {
             $errorMessage = "Error adding run: " . $e->getMessage();
             try {
-                $interaction->updateOriginalResponse($errorMessage);
+                $interaction->updateOriginalResponse($messageBuilder->setContent($errorMessage));
             } catch (Exception $followUpError) {
-                $interaction->channel->sendMessage($errorMessage);
+                $interaction->channel->sendMessage($messageBuilder->setContent($errorMessage));
             }
         }
 
