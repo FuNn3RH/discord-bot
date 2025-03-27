@@ -1058,7 +1058,7 @@ class DiscordBotController extends Controller {
     }
 
     private function sendDbBackup($message) {
-        system("mysqldump -u " . env('DB_USERNAME') . " --password=" . env('DB_PASSWORD') . " --no-create-info " . env('DB_DATABASE') . " runs > ../storage/backup.sql");
+        system("mysqldump -u " . env('DB_USERNAME') . " --password=" . env('DB_PASSWORD') . " --no-create-info " . env('DB_DATABASE') . " runs > storage/backup.sql");
 
         $filePath = storage_path('backup.sql');
         $file = File::get($filePath);
