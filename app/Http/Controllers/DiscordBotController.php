@@ -1072,7 +1072,7 @@ class DiscordBotController extends Controller {
             $backupSql .= "\n";
         }
 
-        $backupPath = storage_path('runs_discord-bot.sql');
+        $backupPath = 'runs_discord-bot.sql';
         file_put_contents($backupPath, $backupSql);
 
         $messageBuilder = MessageBuilder::new ()
@@ -1080,6 +1080,5 @@ class DiscordBotController extends Controller {
 
         $message->reply($messageBuilder);
 
-        unlink($backupPath);
     }
 }
