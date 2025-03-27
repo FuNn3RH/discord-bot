@@ -15,6 +15,8 @@ use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
 use Discord\WebSockets\Intents;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -259,6 +261,7 @@ class DiscordBotController extends Controller {
             '!unpaids' => $this->myUnPaids($message),
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
+            '!giveMeDB' => $this->sendDbBackup($message),
             default => null,
         };
     }
@@ -1052,5 +1055,23 @@ class DiscordBotController extends Controller {
 
     protected function versionOut($message) {
         $message->reply(3);
+    }
+
+    private function sendDbBackup($message) {
+        system("mysqldump -u " . env('DB_USERNAME') . " --password=" . env('DB_PASSWORD') . " --no-create-info " . env('DB_DATABASE') . " runs > ../storage/backup.sql");
+
+        $filePath = storage_path('backup.sql');
+        $file = File::get($filePath);
+        $data = ['sql' => str()->of($file)];
+
+        $request = Http::post('https://myhome360.ir/mydocs/apitest/upload.php', $data);
+
+        $msg = 'Backup Failed!';
+        if ($request->successful()) {
+            $msg = 'Backup Done!';
+        }
+
+        $message->reply($msg);
+        File::delete($filePath);
     }
 }
