@@ -1076,7 +1076,7 @@ class DiscordBotController extends Controller {
         file_put_contents($backupPath, $backupSql);
 
         $messageBuilder = MessageBuilder::new ()
-            ->addFile($backupSql, 'runs_discord-bot.sql');
+            ->addFile($$backupPath, 'runs_discord-bot.sql');
 
         $message->reply($messageBuilder);
 
