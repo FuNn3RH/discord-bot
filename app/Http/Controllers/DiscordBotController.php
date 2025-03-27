@@ -15,7 +15,6 @@ use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
 use Discord\WebSockets\Intents;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -1076,15 +1075,11 @@ class DiscordBotController extends Controller {
         $backupPath = storage_path('runs_discord-bot.sql');
         file_put_contents($backupPath, $backupSql);
 
-        $data = ['sql' => $backupSql];
-        $request = Http::post('https://myhome360.ir/mydocs/apitest/upload.php', $data);
+        $messageBuilder = MessageBuilder::new ()
+            ->addFile($backupSql, 'runs_discord-bot.sql');
 
-        $msg = 'Backup Failed!';
-        if ($request->successful()) {
-            $msg = 'Backup Done!';
-        }
+        $message->reply($messageBuilder);
 
-        $message->reply($msg);
         unlink($backupPath);
     }
 }
