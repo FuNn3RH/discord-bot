@@ -338,7 +338,7 @@ class DiscordBotController extends Controller {
             $user->delete();
             $message->reply('User removed successfully');
         } else {
-            $message->reply('User not removed');
+            $message->reply('User not found');
         }
     }
 
@@ -893,6 +893,7 @@ class DiscordBotController extends Controller {
         $nicknames = [
             'kallagh' => ['mmdraven', 'raven', 'mamadraven', 'kallagh'],
             'funn3r' => ['funn3r', 'funner'],
+            'amirparse' => ['amirparse', 'parse'],
         ];
 
         $rows = DB::table('runs')
@@ -1049,10 +1050,6 @@ class DiscordBotController extends Controller {
             'startTime' => $startTime,
             'endTime' => $endTime,
         ];
-    }
-
-    protected function versionOut($message) {
-        $message->reply(3);
     }
 
     private function sendDbBackup($message) {
