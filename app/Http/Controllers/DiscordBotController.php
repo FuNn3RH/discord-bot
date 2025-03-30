@@ -768,7 +768,7 @@ class DiscordBotController extends Controller {
     }
 
     protected function changePaidRun($run, $reaction) {
-        Log::info($this->authUser);
+
         if ($run->paid == 1) {
             return;
         }
@@ -802,9 +802,24 @@ class DiscordBotController extends Controller {
                 $message->react('✅');
             });
 
+            $this->sendToPaidChannel($messageBuilder);
         }, function ($error) {
             echo "Error fetching message: " . $error->getMessage();
         });
+
+    }
+
+    protected function sendToPaidChannel($messageBuilder) {
+        $paidChannel = Channel::where('channel_name', 'paid_channel')->first();
+        $channel = $this->discord->getChannel($paidChannel->dchannel_id);
+
+        if ($channel) {
+            $promise = $channel->sendMessage($messageBuilder);
+
+            $promise->then(function ($message) {
+                $message->react('✅');
+            });
+        }
 
     }
 
