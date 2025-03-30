@@ -25,7 +25,12 @@ class Run extends Model {
         return $this->belongsTo(User::class);
     }
 
+    public function payUser() {
+        return $this->belongsTo(User::class, 'pay_user', 'id');
+    }
+
     public function channel() {
         return $this->belongsTo(Channel::class);
     }
+
 }

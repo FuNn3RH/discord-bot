@@ -17,6 +17,7 @@ use Discord\WebSockets\Intents;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use React\EventLoop\Loop;
 
 class DiscordBotController extends Controller {
     protected $discord;
@@ -260,6 +261,7 @@ class DiscordBotController extends Controller {
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
             '!giveMeDB' => $this->sendDbBackup($message),
+            '!announceAllPaids' => $this->announcePaidRuns($message),
             default => null,
         };
     }
@@ -1092,5 +1094,49 @@ class DiscordBotController extends Controller {
 
         $message->reply($messageBuilder);
 
+    }
+
+    protected function announcePaidRuns($message) {
+        $paidChannel = Channel::where('channel_name', 'paid_channel')->first();
+        $channel = $this->discord->getChannel($paidChannel->dchannel_id);
+
+        $runs = Run::where('paid', 1)->get();
+        $delay = 0;
+        foreach ($runs as $run) {
+
+            if ($run->pay_user == null) {
+                $run->pay_user = $run->user_id;
+                $run->save();
+            }
+
+            $text = $run->message;
+            $text .= "\n\n✅ **Run paid by** <@{$run->payUser->duser_id}> ✅";
+            $text .= "\n**Paid at**: " . $run->paid_at;
+
+            $embed = new Embed($this->discord);
+            $embed->setTitle("**Butterfly Boost Attendance**")
+                ->setColor(0x4caf50)
+                ->setDescription($text)
+                ->setFooter("Attendance by {$run->user->name}")
+                ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
+
+            $messageBuilder = MessageBuilder::new ()
+                ->setContent('')
+                ->addEmbed($embed);
+
+            if ($channel) {
+
+                Loop::addTimer(3, function () use ($channel, $messageBuilder) {
+                    $promise = $channel->sendMessage($messageBuilder);
+
+                    $promise->then(function ($message) {
+                        $message->react('✅');
+                    });
+
+                });
+
+                $delay += 1;
+            }
+        }
     }
 }
