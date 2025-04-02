@@ -23,12 +23,20 @@ class DiscordBotController extends Controller {
     protected $discord;
     protected $authUser;
     protected $message;
+    protected $nicknames;
 
     public function __construct() {
         $this->discord = new Discord([
             'token' => env('DISCORD_BOT_TOKEN'),
             'intents' => Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT | Intents::DIRECT_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS,
         ]);
+
+        $this->nicknames = [
+            'kallagh' => ['mmdraven', 'raven', 'mamadraven', 'kallagh'],
+            'funn3r' => ['funn3r', 'funner'],
+            'amirparse' => ['amirparse', 'parse'],
+        ];
+
     }
 
     public function startBot() {
@@ -261,7 +269,7 @@ class DiscordBotController extends Controller {
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
             '!giveMeDB' => $this->sendDbBackup($message),
-            '!announceAllPaids' => $this->announcePaidRuns($message),
+        // '!announceAllPaids' => $this->announcePaidRuns($message),
             default => null,
         };
     }
@@ -782,6 +790,8 @@ class DiscordBotController extends Controller {
 
         $payUser = $reaction->member;
 
+        $this->sendPaidToUser($run);
+
         $channel = $this->discord->getChannel($run->channel->dchannel_id);
         $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser) {
 
@@ -907,16 +917,10 @@ class DiscordBotController extends Controller {
 
         $username = $this->authUser->username;
 
-        $nicknames = [
-            'kallagh' => ['mmdraven', 'raven', 'mamadraven', 'kallagh'],
-            'funn3r' => ['funn3r', 'funner'],
-            'amirparse' => ['amirparse', 'parse'],
-        ];
-
         $rows = DB::table('runs')
             ->where('deleted_at', null);
 
-        $nicknames = array_filter($nicknames, function ($nickname) use ($username) {
+        $nicknames = array_filter($this->nicknames, function ($nickname) use ($username) {
             return $nickname === $username;
         }, ARRAY_FILTER_USE_KEY);
 
@@ -1096,7 +1100,7 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function announcePaidRuns($message) {
+    protected function announcePaidRuns() {
         $paidChannel = Channel::where('channel_name', 'paid_channel')->first();
         $channel = $this->discord->getChannel($paidChannel->dchannel_id);
 
@@ -1137,6 +1141,37 @@ class DiscordBotController extends Controller {
 
                 $delay += 1;
             }
+        }
+    }
+
+    protected function sendPaidToUser($runData) {
+        $boosters = $runData->boosters;
+        $users = User::all();
+
+        $boostersPayment = [];
+        foreach ($this->nicknames as $username => $nicknameArray) {
+            foreach ($boosters as $booster) {
+                if (in_array($booster, $nicknameArray)) {
+                    if (isset($boostersPayment[$username])) {
+                        $boostersPayment[$username] += 1;
+                    } else {
+                        $boostersPayment[$username] = 1;
+                    }
+                }
+            }
+        }
+
+        foreach ($boostersPayment as $boosterName => $boosterCount) {
+            $user = $users->where('username', $boosterName)->first();
+
+            $this->discord->users->fetch($user->duser_id)->then(function ($user) use ($runData, $boosterCount) {
+                $text = "**New Run Paid By** <@{$runData->payUser->duser_id}>\n";
+                $text .= "**Run ID**: " . $runData->id . "\n";
+                $text .= "**Cut**: " . ((int) $runData->price * $boosterCount) . ucfirst($runData->unit);
+                $user->sendMessage($text);
+            }, function ($error) {
+                return false;
+            });
         }
     }
 }
