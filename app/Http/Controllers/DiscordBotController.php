@@ -265,7 +265,7 @@ class DiscordBotController extends Controller {
             '!erun' => $this->editRun($message),
             '!srun' => $this->showRun($message),
             '!!b' => $this->showBalance($message),
-            '!unpaids' => $this->myUnPaids($message),
+            '!unpaids' => $this->unPaids($message),
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
             '!giveMeDB' => $this->sendDbBackup($message),
@@ -352,6 +352,49 @@ class DiscordBotController extends Controller {
         }
     }
 
+    protected function updateRun($run, $runData, $reply = false) {
+
+        $authUser = $this->authUser;
+
+        $runText = $this->runsText($runData);
+        $run->update(array_merge($runData, ['message' => $runText]));
+
+        $payUser = User::where('id', $run->pay_user)->first();
+
+        $channel = $this->discord->getChannel($run->channel->dchannel_id);
+        $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser, $authUser, $runText, $reply) {
+
+            $text = $runText;
+            $text .= "\n**Edited by **<@{$authUser->duser_id}>";
+            $text .= "\n**Edited at**: " . $run->updated_at;
+
+            $color = 0x483868;
+            if ($run->paid) {
+                $color = 0x4caf50;
+                $text .= "\n\n✅ **Run paid by <@{$payUser->duser_id}>** ✅";
+                $text .= "\n**Paid at**: " . $run->paid_at;
+            }
+
+            $embed = new Embed($this->discord);
+            $embed->setTitle("**Butterfly Boost Attendance**")
+                ->setColor($color)
+                ->setDescription($text)
+                ->setFooter("Attendance by {$run->user->name}")
+                ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
+
+            $messageBuilder = MessageBuilder::new ()
+                ->setContent('')
+                ->addEmbed($embed);
+
+            $discordMessage->edit($messageBuilder);
+
+            if ($reply) {
+                $this->message->reply("Run edited successfully");
+            }
+        });
+
+    }
+
     protected function handleAddRunCommand($message) {
         $messageContent = $message->content;
 
@@ -360,8 +403,7 @@ class DiscordBotController extends Controller {
         $pattern = '/^!arun .+ \d+[xX]\d+ [A-Z0-9a-z\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/';
 
         if (!preg_match($pattern, $messageContent)) {
-            // $message->reply('Invalid command format !arun <adv> <dungeons> <count>x<pot> -> <boosters (ex:bob-alex-john-clark)> <?note>');
-            $message->reply('Invalid command format !arun <adv> <dungeons> <count>x<level> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>');
+            $message->reply('Invalid command format !arun <adv> <count>x<level> <dungeons> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>');
             return false;
         }
 
@@ -437,7 +479,7 @@ class DiscordBotController extends Controller {
                 'adv' => $runData['runAdv'],
                 'note' => $runData['runNote'],
                 'user_id' => $this->authUser->id,
-                'channel_id' => $runsChannel?->id,
+                'channel_id' => $runsChannel->id,
                 'dmessage_id' => null,
                 'dmessage_link' => null,
             ]);
@@ -512,10 +554,10 @@ class DiscordBotController extends Controller {
 
             $messageContent = trim($messageContent);
 
-            $pattern = '/^!erun \d+ .+ \d+[xX]\d+ [A-Z0-9\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/';
+            $pattern = '/^!erun \d+ .+ \d+[xX]\d+ [A-Z0-9a-z\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/';
 
             if (!preg_match($pattern, $messageContent)) {
-                $message->reply('Invalid command format !erun <runid> <adv> <dungeons> <count>x<pot> -> <boosters (ex:bob-alex-john-clark)> <?note>');
+                $message->reply('Invalid command format !erun <runid> <adv> <count>x<level> <dungeons> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>');
                 return false;
             }
 
@@ -562,7 +604,9 @@ class DiscordBotController extends Controller {
             $run = Run::find($runId);
 
             if ($run) {
-                $run->update([
+
+                $runData = [
+                    'id' => $run->id,
                     'adv' => $runAdv,
                     'count' => $runCount,
                     'level' => $runLevel,
@@ -573,41 +617,10 @@ class DiscordBotController extends Controller {
                     'note' => $runNote,
                     'boosters' => $runBoosters,
                     'boosters_count' => $boostersCount,
-                    'message' => $this->runsText($run),
-                ]);
+                    'created_at' => $run->created_at,
+                ];
 
-                $run->refresh();
-
-                $payUser = User::where('id', $run->pay_user)->first();
-
-                $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser) {
-
-                    $text = $run->message;
-                    $text .= "\n**Edited by ** <@{$this->authUser->duser_id}>";
-                    $text .= "\n**Edited at**: " . $run->updated_at;
-
-                    $color = 0x483868;
-                    if ($run->paid) {
-                        $color = 0x4caf50;
-                        $text .= "\n\n✅ **Run paid by <@$payUser->duser_id>✅";
-                        $text .= "\n**Paid at**: " . $run->paid_at;
-
-                    }
-
-                    $embed = new Embed($this->discord);
-                    $embed->setTitle("**Butterfly Boost Attendance**")
-                        ->setColor($color)
-                        ->setDescription($text)
-                        ->setFooter("Attendance by {$run->user->name}")
-                        ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
-
-                    $messageBuilder = MessageBuilder::new ()
-                        ->setContent('')
-                        ->addEmbed($embed);
-
-                    $discordMessage->edit($messageBuilder);
-                });
+                $this->updateRun($run, $runData, true);
             }
         });
 
@@ -653,21 +666,17 @@ class DiscordBotController extends Controller {
     }
 
     protected function addRunWithCommand($interaction) {
-        $interaction->respondWithMessage("Processing your request... https://discord.com/channels/878241085535715380/1311410753965920367", true);
+        $runsChannel = Channel::where('channel_name', 'runs')->firstOrFail();
+        $interaction->respondWithMessage("Processing your request... " . $runsChannel?->channel_link ?? '', true);
 
-        DB::transaction(function () use ($interaction) {
+        DB::transaction(function () use ($interaction, $runsChannel) {
             $options = $interaction->data->options;
             $boostersName = explode('-', $options['boosters_name']->value);
             $boostersCount = count($boostersName);
 
-            if ($boostersCount === 0) {
-                throw new \Exception("No boosters specified.");
-            }
-
             $runPot = (int) $options['run_pot']->value;
             $runPrice = number_format($runPot / $boostersCount, 2);
             $runUnit = $options['unit']->value ?? '?';
-            $runsChannel = Channel::where('channel_name', 'runs')->firstOrFail();
 
             $run = Run::create([
                 'count' => $options['run_count']->value,
@@ -686,18 +695,17 @@ class DiscordBotController extends Controller {
                 'dmessage_link' => null,
             ]);
 
-            $run->refresh();
             $this->announceRuns($run, $runsChannel, $interaction);
         });
 
     }
 
     protected function editRunWithCommand($interaction) {
-        $interaction->respondWithMessage("Processing your request... https://discord.com/channels/878241085535715380/1311410753965920367", true);
+        $runsChannel = Channel::where('channel_name', 'runs')->first();
+        $interaction->respondWithMessage("Processing your request... " . $runsChannel->channel_link ?? '', true);
+
         DB::transaction(function () use ($interaction) {
             $options = $interaction->data->options;
-
-            $authUser = $this->authUser;
 
             $boostersName = explode('-', $options['boosters_name']->value);
             $boostersCount = count($boostersName);
@@ -709,63 +717,30 @@ class DiscordBotController extends Controller {
             $runUnit = $options['unit']->value;
 
             $runId = $options['run_id']->value;
-            $runsChannel = Channel::where('channel_name', 'runs')->first();
-            if ($runsChannel) {
-                $run = Run::find($runId);
 
-                if ($run) {
-                    $run->update([
-                        'count' => $options['run_count']->value,
-                        'level' => $options['run_level']->value,
-                        'dungeons' => $options['dungeons']->value,
-                        'boosters' => $boostersName,
-                        'boosters_count' => $boostersCount,
-                        'price' => $runPrice,
-                        'unit' => $runUnit ?? '?',
-                        'pot' => $runPot,
-                        'adv' => $options['advertiser']->value,
-                        'note' => $options['additional_note']?->value,
-                        'user_id' => $this->authUser->id,
-                        'channel_id' => $runsChannel?->id,
-                        'message' => $this->runsText($run),
-                    ]);
-                    $run->refresh();
+            $run = Run::find($runId);
 
-                    $payUser = User::where('id', $run->pay_user)->first();
+            if ($run) {
 
-                    $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                    $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser, $authUser) {
+                $runData = [
+                    'id' => $run->id,
+                    'count' => $options['run_count']->value,
+                    'level' => $options['run_level']->value,
+                    'dungeons' => $options['dungeons']->value,
+                    'boosters' => $boostersName,
+                    'boosters_count' => $boostersCount,
+                    'price' => $runPrice,
+                    'unit' => $runUnit ?? '?',
+                    'pot' => $runPot,
+                    'adv' => $options['advertiser']->value,
+                    'note' => $options['additional_note']?->value,
+                    'user_id' => $this->authUser->id,
+                    'created_at' => $run->created_at,
+                ];
 
-                        $text = $run->message;
-                        $text .= "\n**Edited by **<@{$authUser->duser_id}>";
-                        $text .= "\n**Edited at**: " . $run->updated_at;
-
-                        $color = 0x483868;
-                        if ($run->paid) {
-                            $color = 0x4caf50;
-                            $text .= "\n\n✅ **Run paid by <@{$payUser->duser_id}>** ✅";
-                            $text .= "\n**Paid at**: " . $run->paid_at;
-
-                        }
-
-                        $embed = new Embed($this->discord);
-                        $embed->setTitle("**Butterfly Boost Attendance**")
-                            ->setColor($color)
-                            ->setDescription($text)
-                            ->setFooter("Attendance by {$run->user->name}")
-                            ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
-
-                        $messageBuilder = MessageBuilder::new ()
-                            ->setContent('')
-                            ->addEmbed($embed);
-
-                        $discordMessage->edit($messageBuilder);
-
-                        $run->refresh();
-                    });
-
-                }
+                $this->updateRun($run, $runData);
             }
+
         }, 3);
     }
 
@@ -858,6 +833,11 @@ class DiscordBotController extends Controller {
     }
 
     protected function runsText($runData) {
+
+        if (gettype($runData) != 'object') {
+            $runData = (object) $runData;
+        }
+
         $text = "**" . $runData->count . "×" . $runData->level . " " . ucfirst($runData->adv) . "**\n\n" .
         "**Run ID**: " . $runData->id . "\n" .
         "**Date**: " . $runData->created_at . "\n" .
@@ -1007,7 +987,7 @@ class DiscordBotController extends Controller {
         $message->reply($messageBuilder);
     }
 
-    protected function myUnPaids($message) {
+    protected function unPaids($message) {
 
         $runs = Run::where('paid', 0)->cursor();
 
@@ -1074,6 +1054,11 @@ class DiscordBotController extends Controller {
     }
 
     private function sendDbBackup($message) {
+
+        if ($this->authUser->username != 'funn3r') {
+            return false;
+        }
+
         $database = env("DB_DATABASE");
 
         $backupSql = "-- Database Backup: $database\n-- Created: " . date('Y-m-d H:i:s') . "\n\n";
