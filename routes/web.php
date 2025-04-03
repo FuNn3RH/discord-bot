@@ -1,7 +1,8 @@
 <?php
 
 use App\Http\Controllers\BoostController;
-use Carbon\Carbon;
+use App\Models\Run;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(BoostController::class)->group(function () {
@@ -9,10 +10,13 @@ Route::controller(BoostController::class)->group(function () {
 });
 
 Route::get('test', function () {
-    $startTime = Carbon::today()->setHour(7)->setMinute(0)->setSecond(0);
-    $endTime = $startTime->copy()->addDay()->subSecond();
+    $runs = Run::all();
 
-    $startTime = $startTime->format('Y-m-d H:i:s');
-    $endTime = $endTime->format('Y-m-d H:i:s');
+    $jsonPath = 'runs.json';
+    file_put_contents($jsonPath, $runs);
 
+    $filePath = public_path('runs.json');
+    $file = File::get($filePath);
+
+    File::delete($filePath);
 });
