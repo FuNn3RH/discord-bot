@@ -1041,11 +1041,11 @@ class DiscordBotController extends Controller {
     }
 
     protected function customDay() {
-        $yesterdayDate = Carbon::now()->subDay(1)->format('Y-m-d');
-        $currentDate = Carbon::now()->format('Y-m-d');
+        $startTime = Carbon::today()->setHour(7)->setMinute(0)->setSecond(0);
+        $endTime = $startTime->copy()->addDay()->subSecond();
 
-        $startTime = $yesterdayDate . " 07:00:00";
-        $endTime = $currentDate . " 06:59:59";
+        $startTime = $startTime->format('Y-m-d H:i:s');
+        $endTime = $endTime->format('Y-m-d H:i:s');
 
         return [
             'startTime' => $startTime,
