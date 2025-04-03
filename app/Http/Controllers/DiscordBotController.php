@@ -1059,13 +1059,27 @@ class DiscordBotController extends Controller {
             return false;
         }
 
-        $runs = Run::all();
+        $database = env("DB_DATABASE");
 
-        $jsonPath = 'runs.json';
-        file_put_contents($jsonPath, $runs);
+        $backupSql = "-- Database Backup: $database\n-- Created: " . date('Y-m-d H:i:s') . "\n\n";
+
+        $tableName = 'runs';
+
+        $rows = DB::table($tableName)->get();
+        if (count($rows) > 0) {
+            $backupSql .= "-- Dumping data for `$tableName`\n";
+            foreach ($rows as $row) {
+                $values = array_map(fn($value) => $value === null ? "NULL" : "'" . addslashes($value) . "'", (array) $row);
+                $backupSql .= "INSERT INTO `$tableName` VALUES (" . implode(", ", $values) . ");\n";
+            }
+            $backupSql .= "\n";
+        }
+
+        $backupPath = 'runs_discord-bot.sql';
+        file_put_contents($backupPath, $backupSql);
 
         $messageBuilder = MessageBuilder::new ()
-            ->addFile($jsonPath, 'runs_discord-bot.sql');
+            ->addFile($backupPath, 'runs_discord-bot.sql');
 
         $message->reply($messageBuilder);
 
