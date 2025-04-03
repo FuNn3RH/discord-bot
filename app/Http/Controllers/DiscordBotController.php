@@ -1047,8 +1047,15 @@ class DiscordBotController extends Controller {
     }
 
     protected function customDay() {
-        $startTime = Carbon::today()->setHour(7)->setMinute(0)->setSecond(0);
-        $endTime = $startTime->copy()->addDay()->subSecond();
+        $now = Carbon::today()->setHour(19);
+
+        if ($now->hour < 7) {
+            $startTime = Carbon::yesterday()->setHour(7)->setMinute(0)->setSecond(0);
+            $endTime = Carbon::today()->setHour(6)->setMinute(59)->setSecond(59);
+        } else {
+            $startTime = Carbon::today()->setHour(7)->setMinute(0)->setSecond(0);
+            $endTime = Carbon::tomorrow()->setHour(6)->setMinute(59)->setSecond(59);
+        }
 
         $startTime = $startTime->format('Y-m-d H:i:s');
         $endTime = $endTime->format('Y-m-d H:i:s');
