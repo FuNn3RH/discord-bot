@@ -1165,7 +1165,8 @@ class DiscordBotController extends Controller {
             $this->discord->users->fetch($user->duser_id)->then(function ($user) use ($runData, $boosterCount) {
                 $text = "**New Run Paid By** <@{$runData->payUser->duser_id}>\n";
                 $text .= "**Run ID**: " . $runData->id . "\n";
-                $text .= "**Cut**: " . ((int) $runData->price * $boosterCount) . ucfirst($runData->unit);
+                $text .= "**Cut**: " . ((int) $runData->price * $boosterCount) . ucfirst($runData->unit) . "\n";
+                $text .= $runData->dmessage_link;
                 $user->sendMessage($text);
             }, function ($error) {
                 return false;
