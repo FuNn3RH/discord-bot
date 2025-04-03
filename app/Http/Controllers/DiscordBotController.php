@@ -647,7 +647,7 @@ class DiscordBotController extends Controller {
             $text = $run->message;
 
             if ($run->paid == 1) {
-                $text .= "\n\n✅ **Run paid by " . $run->pay_user . '** ✅';
+                $text .= "\n\n✅ **Run paid by <@" . $run->payUser->duser_id . '>** ✅';
                 $text .= "\n**Paid at**: " . $run->paid_at;
             }
 
