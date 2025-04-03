@@ -921,7 +921,13 @@ class DiscordBotController extends Controller {
         $rows = $rows->get();
 
         foreach ($rows as $row) {
-            $cutCount = collect(json_decode($row->boosters))->countBy()->get($nickname, 0);
+            $boostersNames = json_decode($row->boosters);
+            $cutCount = 0;
+            foreach ($boostersNames as $boostersName) {
+                if (in_array($boostersName, $nicknames)) {
+                    $cutCount++;
+                }
+            }
 
             if ($cutCount > 1) {
                 for ($i = 0; $i < $cutCount - 1; $i++) {
