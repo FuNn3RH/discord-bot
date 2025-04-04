@@ -734,7 +734,6 @@ class DiscordBotController extends Controller {
                     'pot' => $runPot,
                     'adv' => $options['advertiser']->value,
                     'note' => $options['additional_note']?->value,
-                    'user_id' => $this->authUser->id,
                     'created_at' => $run->created_at,
                 ];
 
