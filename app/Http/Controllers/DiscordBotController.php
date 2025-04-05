@@ -35,6 +35,7 @@ class DiscordBotController extends Controller {
             'kallagh' => ['mmdraven', 'raven', 'mamadraven', 'kallagh'],
             'funn3r' => ['funn3r', 'funner'],
             'amirparse' => ['amirparse', 'parse'],
+            'extro' => ['extro'],
         ];
 
     }
