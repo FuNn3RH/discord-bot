@@ -266,6 +266,7 @@ class DiscordBotController extends Controller {
             '!!bt' => $this->showBalance($message, true),
             '!giveMeDB' => $this->sendDbBackup($message),
             '!anick' => $this->addNicknames($message),
+            '!clearCaches' => $this->clearCaches(),
         // '!announceAllPaids' => $this->announcePaidRuns($message),
             default => null,
         };
@@ -900,7 +901,10 @@ class DiscordBotController extends Controller {
             return $nickname === $username;
         }, ARRAY_FILTER_USE_KEY);
 
-        Log::alert($nicknames);
+        if (empty($nicknames)) {
+            $message->reply("You dont have account balance!");
+            return false;
+        }
 
         foreach ($nicknames as $nickname => $nicknames) {
             $rows->where(function ($query) use ($nicknames) {
@@ -1217,5 +1221,9 @@ class DiscordBotController extends Controller {
         }
 
         return $nicknames;
+    }
+
+    protected function clearCaches() {
+        Cache::forget('nicknames');
     }
 }
