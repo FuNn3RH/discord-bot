@@ -900,6 +900,8 @@ class DiscordBotController extends Controller {
             return $nickname === $username;
         }, ARRAY_FILTER_USE_KEY);
 
+        Log::alert($nicknames);
+
         foreach ($nicknames as $nickname => $nicknames) {
             $rows->where(function ($query) use ($nicknames) {
                 foreach ($nicknames as $nickname) {
@@ -1144,6 +1146,11 @@ class DiscordBotController extends Controller {
 
         $boostersPayment = [];
         foreach ($this->nicknames as $username => $nicknameArray) {
+
+            if (!$nicknameArray) {
+                continue;
+            }
+
             foreach ($boosters as $booster) {
                 if (in_array($booster, $nicknameArray)) {
                     if (isset($boostersPayment[$username])) {
@@ -1190,7 +1197,7 @@ class DiscordBotController extends Controller {
         $nicknames = explode('-', $nicknames);
 
         $user = User::whereUsername($username)->first();
-        $userNicknames = $user->nicknames;
+        $userNicknames = (array) $user->nicknames;
 
         $newNicknames = collect(array_merge($userNicknames, $nicknames))->unique()->toArray();
         $user->update(['nicknames' => $newNicknames]);
@@ -1205,7 +1212,7 @@ class DiscordBotController extends Controller {
 
     protected function getNicknames() {
         if (!$nicknames = Cache::get('nicknames')) {
-            $nicknames = User::pluck('nicknames', 'username');
+            $nicknames = User::pluck('nicknames', 'username')->toArray();
             Cache::put('nicknames', $nicknames, now()->addDay());
         }
 
