@@ -266,7 +266,7 @@ class DiscordBotController extends Controller {
             '!!bt' => $this->showBalance($message, true),
             '!giveMeDB' => $this->sendDbBackup($message),
             '!anick' => $this->addNicknames($message),
-            '!clearCaches' => $this->clearCaches(),
+            '!clearCaches' => $this->clearCaches($message),
         // '!announceAllPaids' => $this->announcePaidRuns($message),
             default => null,
         };
@@ -1223,7 +1223,9 @@ class DiscordBotController extends Controller {
         return $nicknames;
     }
 
-    protected function clearCaches() {
+    protected function clearCaches($message) {
         Cache::forget('nicknames');
+
+        $message->reply('Caches Cleared!');
     }
 }
