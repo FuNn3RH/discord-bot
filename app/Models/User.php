@@ -19,6 +19,7 @@ class User extends Authenticatable {
         'name',
         'username',
         'duser_id',
+        'nicknames',
     ];
 
     /**
@@ -40,6 +41,7 @@ class User extends Authenticatable {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'nicknames' => 'array',
         ];
     }
 

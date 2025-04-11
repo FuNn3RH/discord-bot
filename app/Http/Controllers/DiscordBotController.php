@@ -14,6 +14,7 @@ use Discord\Parts\Interactions\Command\Option;
 use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
 use Discord\WebSockets\Intents;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -31,13 +32,7 @@ class DiscordBotController extends Controller {
             'intents' => Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT | Intents::DIRECT_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS,
         ]);
 
-        $this->nicknames = [
-            'kallagh' => ['mmdraven', 'raven', 'mamadraven', 'kallagh'],
-            'funn3r' => ['funn3r', 'funner'],
-            'amirparse' => ['amirparse', 'parse'],
-            'extro' => ['extro'],
-        ];
-
+        $this->nicknames = $this->getNicknames();
     }
 
     public function startBot() {
@@ -270,6 +265,7 @@ class DiscordBotController extends Controller {
             '!myadds' => $this->myAdds($message),
             '!!bt' => $this->showBalance($message, true),
             '!giveMeDB' => $this->sendDbBackup($message),
+            '!anick' => $this->addNicknames($message),
         // '!announceAllPaids' => $this->announcePaidRuns($message),
             default => null,
         };
@@ -1172,5 +1168,47 @@ class DiscordBotController extends Controller {
                 return false;
             });
         }
+    }
+
+    protected function addNicknames($message) {
+        $messageContent = $message->content;
+
+        $pattern = '/^!anick .+ [A-z0-9\-]+$/';
+
+        if (!preg_match($pattern, $messageContent)) {
+            $message->reply('Invalid command format !arun <runid> <nicknames>');
+            return false;
+        }
+
+        $messageContent = str($messageContent)->replace('!anick', '');
+
+        $params = explode(' ', $messageContent);
+
+        $username = $params[1];
+
+        $nicknames = $params[2];
+        $nicknames = explode('-', $nicknames);
+
+        $user = User::whereUsername($username)->first();
+        $userNicknames = $user->nicknames;
+
+        $newNicknames = collect(array_merge($userNicknames, $nicknames))->unique()->toArray();
+        $user->update(['nicknames' => $newNicknames]);
+
+        $text = ucfirst($username) . "'s nicknames updated successfully! ✅\n";
+        $text .= "New nicknames: [" . implode('-', $newNicknames) . ']';
+
+        Cache::forget('nicknames');
+
+        $message->reply($text);
+    }
+
+    protected function getNicknames() {
+        if (!$nicknames = Cache::get('nicknames')) {
+            $nicknames = User::pluck('nicknames', 'username');
+            Cache::put('nicknames', $nicknames, now()->addDay());
+        }
+
+        return $nicknames;
     }
 }
