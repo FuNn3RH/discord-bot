@@ -19,139 +19,146 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use React\EventLoop\Loop;
+use React\EventLoop\TimerInterface;
 
-class DiscordBotController extends Controller {
+class DiscordBotController extends Controller
+{
     protected $discord;
     protected $authUser;
     protected $message;
     protected $nicknames;
+    protected $commands;
+    protected $timerRefrence = null;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->discord = new Discord([
-            'token' => env('DISCORD_BOT_TOKEN'),
+            'token'   => env('DISCORD_BOT_TOKEN'),
             'intents' => Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT | Intents::DIRECT_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS,
         ]);
 
-        $this->nicknames = $this->getNicknames();
+        $this->commands = $this->getCommands();
     }
 
-    public function startBot() {
+    public function startBot()
+    {
 
         $this->discord->on('init', function (Discord $discord) {
             Log::info('Bot is ready!');
+            $this->botServiceProvider();
 
             $addRunCmd = new Command($discord, [
-                'name' => 'arun',
+                'name'        => 'arun',
                 'description' => 'Adds Run Attendance',
-                'options' => [
+                'options'     => [
                     [
-                        'name' => 'advertiser',
+                        'name'        => 'advertiser',
                         'description' => 'Name of the Advertiser',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'dungeons',
+                        'name'        => 'dungeons',
                         'description' => 'List of the dungeons sperated with - ex:FG,FG-ML',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'run_count',
+                        'name'        => 'run_count',
                         'description' => 'Count of the runs',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'run_level',
+                        'name'        => 'run_level',
                         'description' => 'Level of the runs',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'run_pot',
+                        'name'        => 'run_pot',
                         'description' => 'Total Pot of the run',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'unit',
+                        'name'        => 'unit',
                         'description' => 'Unit of the Pot (K/T)',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'boosters_name',
+                        'name'        => 'boosters_name',
                         'description' => 'Boosters name list seperated with -',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'additional_note',
+                        'name'        => 'additional_note',
                         'description' => 'Additional note for the run',
-                        'type' => Option::STRING,
-                        'required' => false,
+                        'type'        => Option::STRING,
+                        'required'    => false,
                     ],
                 ],
             ]);
 
             $editRunCmd = new Command($discord, [
-                'name' => 'erun',
+                'name'        => 'erun',
                 'description' => 'Edits Run Attendance',
-                'options' => [
+                'options'     => [
                     [
-                        'name' => 'run_id',
+                        'name'        => 'run_id',
                         'description' => 'ID of the run',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'advertiser',
+                        'name'        => 'advertiser',
                         'description' => 'Name of the Advertiser',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'dungeons',
+                        'name'        => 'dungeons',
                         'description' => 'List of the dungeons sperated with - ex:FG,FG-ML',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'run_count',
+                        'name'        => 'run_count',
                         'description' => 'Count of the runs',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'run_level',
+                        'name'        => 'run_level',
                         'description' => 'Level of the runs',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'run_pot',
+                        'name'        => 'run_pot',
                         'description' => 'Total Pot of the run',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'unit',
+                        'name'        => 'unit',
                         'description' => 'Unit of the Pot (K/T)',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'boosters_name',
+                        'name'        => 'boosters_name',
                         'description' => 'Boosters name list seperated with -',
-                        'type' => Option::STRING,
-                        'required' => true,
+                        'type'        => Option::STRING,
+                        'required'    => true,
                     ],
                     [
-                        'name' => 'additional_note',
+                        'name'        => 'additional_note',
                         'description' => 'Additional note for the run',
-                        'type' => Option::STRING,
-                        'required' => false,
+                        'type'        => Option::STRING,
+                        'required'    => false,
                     ],
                 ],
             ]);
@@ -182,15 +189,16 @@ class DiscordBotController extends Controller {
             //     ],
             // ]);
 
-            // Register command
-            $discord->application->commands->save($addRunCmd); # Add
+                                                                // Register command
+            $discord->application->commands->save($addRunCmd);  # Add
             $discord->application->commands->save($editRunCmd); # Edit
-            // $discord->application->commands->save($removeRunCmd); # Delete
-            // $discord->application->commands->save($showRunCmd); # Show
+                                                                // $discord->application->commands->save($removeRunCmd); # Delete
+                                                                // $discord->application->commands->save($showRunCmd); # Show
 
         });
 
         $this->discord->on(Event::MESSAGE_CREATE, function ($message, Discord $discord) {
+            $this->botServiceProvider();
 
             if ($this->checkUser($message)) {
                 $this->message = $message;
@@ -200,38 +208,49 @@ class DiscordBotController extends Controller {
         });
 
         $this->discord->on(Event::MESSAGE_REACTION_ADD, function ($reaction, Discord $discord) {
-            if (!$reaction?->member?->user->bot) {
+            $this->botServiceProvider();
+
+            if (! $reaction?->member?->user->bot) {
                 if ($this->checkUser($reaction, 'reaction')) {
-                    Log::info($this->authUser);
                     $run = $this->findRun($reaction);
                     $this->handleReaction($reaction, $run);
                 }
             }
+
         });
 
         $this->discord->on(Event::INTERACTION_CREATE, function (Interaction $interaction, Discord $discord) {
+            $this->botServiceProvider();
+
             $messageBuilder = MessageBuilder::new ();
-            if (!$this->checkUser($interaction, 'command')) {
+            if (! $this->checkUser($interaction, 'command')) {
                 $interaction->respondWithMessage($messageBuilder->setContent('You do not have permission to use this command'), true);
                 return;
             }
 
             switch ($interaction->data->name) {
-            case 'arun':
-                $this->addRunWithCommand($interaction);
-                break;
-            case 'erun':
-                $this->editRunWithCommand($interaction);
-                break;
-            default:
-                break;
+                case 'arun':
+                    $this->addRunWithCommand($interaction);
+                    break;
+                case 'erun':
+                    $this->editRunWithCommand($interaction);
+                    break;
+                default:
+                    break;
             }
+
         });
 
         $this->discord->run();
     }
 
-    protected function checkUser($message, $method = 'message') {
+    protected function botServiceProvider()
+    {
+        $this->nicknames = $this->getNicknames();
+    }
+
+    protected function checkUser($message, $method = 'message')
+    {
 
         $author = match ($method) {
             'message' => $message->author->id,
@@ -244,44 +263,56 @@ class DiscordBotController extends Controller {
         return $this->authUser !== null;
     }
 
-    protected function checkCommands($message) {
-        $command = $message->content;
+    protected function getCommands()
+    {
 
-        $messageContent = explode(' ', $message->content);
+        $commands = [
+            '!aadmin'      => ['regex' => ['pattern' => '/!aadmin .+ .+ .+/', 'message' => '!aadmin <username> <dusuer_id> <name>'], 'callback' => [$this, 'addAdmin']],
+            '!radmin'      => ['regex' => ['pattern' => '/!radmin .+/', 'message' => '!radmin <duserid>'], 'callback' => [$this, 'removeAdmin']],
+            '!arun'        => ['regex' => ['pattern' => '/^!arun .+ \d+[xX]\d+ [A-Z0-9a-z\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/', 'message' => '!arun <adv> <count>x<level> <dungeons> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>'], 'callback' => [$this, 'addRun']],
+            '!rrun'        => ['regex' => ['pattern' => '/!rrun \w+/', 'message' => '!rrun <runid>'], 'callback' => [$this, 'removeRun']],
+            '!erun'        => ['regex' => ['pattern' => '/^!erun \d+ .+ \d+[xX]\d+ [A-Z0-9a-z\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/', 'message' => '!erun <runid> <adv> <count>x<level> <dungeons> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>'], 'callback' => [$this, 'editRun']],
+            '!srun'        => ['regex' => ['pattern' => '/^!srun \d+$/', 'message' => '!srun <runid>'], 'callback' => [$this, 'showRun']],
+            '!!b'          => ['callback' => [$this, 'showBalance']],
+            '!unpaids'     => ['callback' => [$this, 'unPaids']],
+            '!myadds'      => ['callback' => [$this, 'myAdds']],
+            '!!bt'         => ['callback' => [$this, 'showBalance'], 'parameters' => true],
+            '!giveMeDB'    => ['callback' => [$this, 'sendDbBackup']],
+            '!anick'       => ['regex' => ['pattern' => '/^!anick [^\s]+ [^\s]+$/', 'message' => '!anick <username> <nicknames (sep:-)>'], 'callback' => [$this, 'addNicknames']],
+            '!clearCaches' => ['callback' => [$this, 'clearCaches']],
+            // '!announceAllPaids' => [''callback' => [ $this,'announcePaidRuns']],
+            '',
+        ];
 
-        if (count($messageContent) > 1) {
-            $command = $messageContent[0];
-        }
-
-        match ($command) {
-            '!aadmin' => $this->addAdmin($message),
-            '!radmin' => $this->removeAdmin($message),
-            '!arun' => $this->addRun($message),
-            '!rrun' => $this->removeRun($message),
-            '!erun' => $this->editRun($message),
-            '!srun' => $this->showRun($message),
-            '!!b' => $this->showBalance($message),
-            '!unpaids' => $this->unPaids($message),
-            '!myadds' => $this->myAdds($message),
-            '!!bt' => $this->showBalance($message, true),
-            '!giveMeDB' => $this->sendDbBackup($message),
-            '!anick' => $this->addNicknames($message),
-            '!clearCaches' => $this->clearCaches($message),
-        // '!announceAllPaids' => $this->announcePaidRuns($message),
-            default => null,
-        };
+        return $commands;
     }
 
-    protected function addAdmin($message) {
+    protected function checkCommands($message)
+    {
+        $userCommand = trim($message->content);
+        $userCommand = str($message->content)->before(' ')->toString();
+
+        $command = $this->commands[$userCommand];
+
+        if (isset($command) && ! empty($command)) {
+
+            if (isset($command['regex'])) {
+
+                if (! preg_match($command['regex']['pattern'], $message->content)) {
+                    return $message->reply($command['regex']['message']);
+                }
+            }
+
+            return call_user_func($command['callback'], $message, $command['parameters'] ?? null); // calling the callback of command
+        }
+
+        return null;
+    }
+
+    protected function addAdmin($message)
+    {
 
         $messageContent = $message->content;
-
-        $pattern = '/!aadmin\s\w+\s\w+\s\w+/';
-
-        if (!preg_match($pattern, $messageContent)) {
-            $message->reply('Invalid command format !aadmin <username> <userid> <name>');
-            return;
-        }
 
         $messageContent = explode(' ', $messageContent);
         unset($messageContent[0]);
@@ -290,12 +321,19 @@ class DiscordBotController extends Controller {
 
         $newUserData['username'] = $messageContent[0];
         $newUserData['duser_id'] = $messageContent[1];
-        $newUserData['name'] = $messageContent[2];
+        $newUserData['name']     = $messageContent[2];
+
+        //region Add nickname to user with add admin
+        // if (isset($messageContent[3]) && ! empty($messageContent[3])) {
+        //     $nicknames = $messageContent[3]
+        //     $newUserData['nicknames'] = $messageContent[3];
+        // }
+        //endregion
 
         $validator = Validator::make($newUserData, [
             'username' => ['required', 'unique:users,username'],
             'duser_id' => ['required', 'unique:users,duser_id'],
-            'name' => ['required'],
+            'name'     => ['required'],
         ]);
 
         if ($validator->fails()) {
@@ -312,20 +350,14 @@ class DiscordBotController extends Controller {
         }
     }
 
-    protected function removeAdmin($message) {
+    protected function removeAdmin($message)
+    {
 
         if ($this->authUser->username != 'funn3r') {
             return;
         }
 
         $messageContent = $message->content;
-
-        $pattern = '/!radmin\s\w+/';
-
-        if (!preg_match($pattern, $messageContent)) {
-            $message->reply('Invalid command format !radmin <userid>');
-            return;
-        }
 
         $messageContent = explode(' ', $message->content);
         unset($messageContent[0]);
@@ -350,7 +382,8 @@ class DiscordBotController extends Controller {
         }
     }
 
-    protected function updateRun($run, $runData, $reply = false) {
+    protected function updateRun($run, $runData, $reply = false)
+    {
 
         $authUser = $this->authUser;
 
@@ -359,51 +392,49 @@ class DiscordBotController extends Controller {
 
         $payUser = User::where('id', $run->pay_user)->first();
 
+        $text = $runText;
+        $text .= "\n**Edited by **<@{$authUser->duser_id}>";
+        $text .= "\n**Edited at**: " . $run->updated_at;
+
+        $color = 0x483868;
+        if ($run->paid) {
+            $color = 0x4caf50;
+            $text .= "\n\n✅ **Run paid by <@{$payUser->duser_id}>** ✅";
+            $text .= "\n**Paid at**: " . $run->paid_at;
+        }
+
+        $embed = new Embed($this->discord);
+        $embed->setTitle("**Butterfly Boost Attendance**")
+            ->setColor($color)
+            ->setDescription($text)
+            ->setFooter("Attendance by {$run->user->name}")
+            ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
+
+        $messageBuilder = MessageBuilder::new ()
+            ->setContent('')
+            ->addEmbed($embed);
+
         $channel = $this->discord->getChannel($run->channel->dchannel_id);
-        $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $payUser, $authUser, $runText, $reply) {
-
-            $text = $runText;
-            $text .= "\n**Edited by **<@{$authUser->duser_id}>";
-            $text .= "\n**Edited at**: " . $run->updated_at;
-
-            $color = 0x483868;
-            if ($run->paid) {
-                $color = 0x4caf50;
-                $text .= "\n\n✅ **Run paid by <@{$payUser->duser_id}>** ✅";
-                $text .= "\n**Paid at**: " . $run->paid_at;
-            }
-
-            $embed = new Embed($this->discord);
-            $embed->setTitle("**Butterfly Boost Attendance**")
-                ->setColor($color)
-                ->setDescription($text)
-                ->setFooter("Attendance by {$run->user->name}")
-                ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
-
-            $messageBuilder = MessageBuilder::new ()
-                ->setContent('')
-                ->addEmbed($embed);
-
+        $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($messageBuilder) {
             $discordMessage->edit($messageBuilder);
-
-            if ($reply) {
-                $this->message->reply("Run edited successfully");
-            }
+        })->otherwise(function () use ($channel, $messageBuilder, $run) {
+            $channel->sendMessage($messageBuilder)->then(function ($sentMessage) use ($run) {
+                $run->dmessage_id   = $messageSent->id;
+                $run->dmessage_link = "https://discord.com/channels/" . $messageSent->guild_id . "/" . $messageSent->channel_id . "/" . $messageSent->id;
+                $run->save();
+            });
         });
 
+        if ($reply) {
+            $this->message->reply("Run edited successfully " . $run->dmessage_link);
+        }
     }
 
-    protected function handleAddRunCommand($message) {
+    protected function handleAddRunCommand($message)
+    {
         $messageContent = $message->content;
 
         $messageContent = trim($messageContent);
-
-        $pattern = '/^!arun .+ \d+[xX]\d+ [A-Z0-9a-z\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/';
-
-        if (!preg_match($pattern, $messageContent)) {
-            $message->reply('Invalid command format !arun <adv> <count>x<level> <dungeons> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>');
-            return false;
-        }
 
         $messageContent = explode(' ', $messageContent);
         $messageContent = str_replace('->', '', $messageContent);
@@ -412,13 +443,13 @@ class DiscordBotController extends Controller {
         unset($messageContent[0]); // remove the command
 
         $messageContent = implode(' ', $messageContent);
-        $runData = explode(' ', $messageContent);
+        $runData        = explode(' ', $messageContent);
 
         // adv
         $runAdv = $runData[0];
 
         // count x level
-        $runInfo = explode('x', strtolower($runData[1]));
+        $runInfo  = explode('x', strtolower($runData[1]));
         $runCount = $runInfo[0];
         $runLevel = $runInfo[1];
 
@@ -426,11 +457,11 @@ class DiscordBotController extends Controller {
         $dungeons = $runData[2];
 
         // price
-        $runPot = (int) $runData[3];
+        $runPot  = (int) $runData[3];
         $runUnit = preg_replace('/[\d]/', '', $runData[3]);
 
         // boosters
-        $runBoosters = explode('-', $runData[4]);
+        $runBoosters   = explode('-', $runData[4]);
         $boostersCount = count($runBoosters);
 
         $runPrice = $runPot / $boostersCount;
@@ -443,67 +474,65 @@ class DiscordBotController extends Controller {
         }
 
         return [
-            'runAdv' => $runAdv,
-            'runCount' => $runCount,
-            'runLevel' => $runLevel,
-            'runPrice' => $runPrice,
-            'dungeons' => $dungeons,
-            'runPot' => $runPot,
-            'runUnit' => $runUnit,
-            'runNote' => $runNote,
-            'runBoosters' => $runBoosters,
+            'runAdv'        => $runAdv,
+            'runCount'      => $runCount,
+            'runLevel'      => $runLevel,
+            'runPrice'      => $runPrice,
+            'dungeons'      => $dungeons,
+            'runPot'        => $runPot,
+            'runUnit'       => $runUnit,
+            'runNote'       => $runNote,
+            'runBoosters'   => $runBoosters,
             'boostersCount' => $boostersCount,
         ];
     }
 
-    protected function addRun($message) {
+    protected function addRun($message)
+    {
         DB::transaction(function () use ($message) {
             $runData = $this->handleAddRunCommand($message);
-            if (!$runData) {
+            if (! $runData) {
                 return;
             }
 
             $runsChannel = Channel::where('channel_name', 'runs')->first();
 
             $run = Run::create([
-                'count' => $runData['runCount'],
-                'level' => $runData['runLevel'],
-                'dungeons' => $runData['dungeons'],
-                'boosters' => $runData['runBoosters'],
+                'count'          => $runData['runCount'],
+                'level'          => $runData['runLevel'],
+                'dungeons'       => $runData['dungeons'],
+                'boosters'       => $runData['runBoosters'],
                 'boosters_count' => $runData['boostersCount'],
-                'price' => $runData['runPrice'],
-                'unit' => $runData['runUnit'],
-                'pot' => $runData['runPot'],
-                'adv' => $runData['runAdv'],
-                'note' => $runData['runNote'],
-                'user_id' => $this->authUser->id,
-                'channel_id' => $runsChannel->id,
-                'dmessage_id' => null,
-                'dmessage_link' => null,
+                'price'          => $runData['runPrice'],
+                'unit'           => $runData['runUnit'],
+                'pot'            => $runData['runPot'],
+                'adv'            => $runData['runAdv'],
+                'note'           => $runData['runNote'],
+                'user_id'        => $this->authUser->id,
+                'channel_id'     => $runsChannel->id,
+                'dmessage_id'    => null,
+                'dmessage_link'  => null,
             ]);
 
             if ($run) {
-                $message->reply('Run added successfully');
-                $this->announceRuns($run, $runsChannel);
+                $this->announceRuns($run, $runsChannel)->then(function ($runData) use ($message) {
+                    $message->reply("Run added successfully " . $runData->dmessage_link);
+                })->otherwise(function () use ($message) {
+                    $message->reply("Run added successfully");
+                });
             } else {
                 $message->reply('Run not added');
             }
         });
     }
 
-    protected function removeRun($message) {
+    protected function removeRun($message)
+    {
 
         DB::transaction(function () use ($message) {
             $messageContent = $message->content;
 
             $authUser = $this->authUser;
-
-            $pattern = '/!rrun\s\w+/';
-
-            if (!preg_match($pattern, $messageContent)) {
-                $message->reply('Invalid command format !rrun <runid>');
-                return;
-            }
 
             $messageContent = explode(' ', $message->content);
             unset($messageContent[0]);
@@ -513,51 +542,51 @@ class DiscordBotController extends Controller {
 
             if ($run) {
                 $channel = $this->discord->getChannel($run->channel->dchannel_id);
-                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $authUser) {
 
-                    $text = $run->message;
-                    $text .= "\n\n❌ **Run removed by " . "<@{$authUser->duser_id}>" . '** ❌';
+                $text = $run->message;
+                $text .= "\n\n❌ **Run removed by " . "<@{$authUser->duser_id}>" . '** ❌';
 
-                    $embed = new Embed($this->discord);
-                    $embed->setTitle("**Butterfly Boost Attendance**")
-                        ->setColor(0xdf3079)
-                        ->setDescription($text)
-                        ->setFooter("Attendance by {$authUser->name}")
-                        ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
+                $embed = new Embed($this->discord);
+                $embed->setTitle("**Butterfly Boost Attendance**")
+                    ->setColor(0xdf3079)
+                    ->setDescription($text)
+                    ->setFooter("Attendance by {$authUser->name}")
+                    ->setThumbnail('https://cdn.discordapp.com/icons/878241085535715380/33780e7fe9cf2f42db8a6083f0f8bc5d.webp?size=1024');
 
-                    $messageBuilder = MessageBuilder::new ()
-                        ->setContent('')
-                        ->addEmbed($embed);
+                $messageBuilder = MessageBuilder::new ()
+                    ->setContent('')
+                    ->addEmbed($embed);
 
+                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $authUser, $messageBuilder) {
                     $discordMessage->edit($messageBuilder)->then(function ($message) {
                         $message->react('❌');
                     });
+                })->otherwise(function ($error) use ($messageBuilder, $channel, $run) {
+                    $channel->sendMessage($messageBuilder)->then(function ($messageSent) use ($run) {
+                        $run->dmessage_id   = $messageSent->id;
+                        $run->dmessage_link = "https://discord.com/channels/" . $messageSent->guild_id . "/" . $messageSent->channel_id . "/" . $messageSent->id;
+                        $run->save();
 
-                }, function ($error) {
-                    echo "Error fetching message: " . $error->getMessage();
+                        $messageSent->react('❌');
+                    });
                 });
+
                 $run->delete();
-                $message->reply('Run removed successfully');
+                $message->reply('Run removed successfully ' . $run->dmessage_link);
             } else {
                 $message->reply('Run not removed');
             }
         });
     }
 
-    protected function editRun($message) {
+    protected function editRun($message)
+    {
 
         DB::transaction(function () use ($message) {
 
             $messageContent = $message->content;
 
             $messageContent = trim($messageContent);
-
-            $pattern = '/^!erun \d+ .+ \d+[xX]\d+ [A-Z0-9a-z\-]+ \d+[tTkK] -> (?:.+-)*\w+(?: .*)?$/';
-
-            if (!preg_match($pattern, $messageContent)) {
-                $message->reply('Invalid command format !erun <runid> <adv> <count>x<level> <dungeons> <pot><t/k> -> <boosters (ex:bob-alex-john-clark)> <?note>');
-                return false;
-            }
 
             $messageContent = explode(' ', $messageContent);
             $messageContent = str_replace('->', '', $messageContent);
@@ -569,13 +598,13 @@ class DiscordBotController extends Controller {
             unset($messageContent[1]); // remove the runId
 
             $messageContent = implode(' ', $messageContent);
-            $runData = explode(' ', $messageContent);
+            $runData        = explode(' ', $messageContent);
 
             // adv
             $runAdv = $runData[0];
 
             // count x level
-            $runInfo = explode('x', strtolower($runData[1]));
+            $runInfo  = explode('x', strtolower($runData[1]));
             $runCount = $runInfo[0];
             $runLevel = $runInfo[1];
 
@@ -583,11 +612,11 @@ class DiscordBotController extends Controller {
             $dungeons = $runData[2];
 
             // price
-            $runPot = (int) $runData[3];
+            $runPot  = (int) $runData[3];
             $runUnit = preg_replace('/[\d]/', '', $runData[3]);
 
             // boosters
-            $runBoosters = explode('-', $runData[4]);
+            $runBoosters   = explode('-', $runData[4]);
             $boostersCount = count($runBoosters);
 
             $runPrice = $runPot / $boostersCount;
@@ -604,40 +633,36 @@ class DiscordBotController extends Controller {
             if ($run) {
 
                 $runData = [
-                    'id' => $run->id,
-                    'adv' => $runAdv,
-                    'count' => $runCount,
-                    'level' => $runLevel,
-                    'price' => $runPrice,
-                    'dungeons' => $dungeons,
-                    'pot' => $runPot,
-                    'unit' => $runUnit,
-                    'note' => $runNote,
-                    'boosters' => $runBoosters,
+                    'id'             => $run->id,
+                    'adv'            => $runAdv,
+                    'count'          => $runCount,
+                    'level'          => $runLevel,
+                    'price'          => $runPrice,
+                    'dungeons'       => $dungeons,
+                    'pot'            => $runPot,
+                    'unit'           => $runUnit,
+                    'note'           => $runNote,
+                    'boosters'       => $runBoosters,
                     'boosters_count' => $boostersCount,
-                    'created_at' => $run->created_at,
+                    'created_at'     => $run->created_at,
                 ];
 
                 $this->updateRun($run, $runData, true);
+            } else {
+                return $message->reply("Invalid Run ID");
             }
         });
 
     }
 
-    protected function showRun($message) {
+    protected function showRun($message)
+    {
         $messageContent = $message->content;
 
         $messageContent = trim($messageContent);
 
-        $pattern = '/^!srun \d+$/';
-
-        if (!preg_match($pattern, $messageContent)) {
-            $message->reply('Invalid command format !srun <runid>');
-            return false;
-        }
-
         $messageContent = explode(' ', $messageContent);
-        $runId = $messageContent[1];
+        $runId          = $messageContent[1];
 
         $run = Run::find($runId);
 
@@ -663,34 +688,35 @@ class DiscordBotController extends Controller {
         }
     }
 
-    protected function addRunWithCommand($interaction) {
+    protected function addRunWithCommand($interaction)
+    {
         $runsChannel = Channel::where('channel_name', 'runs')->firstOrFail();
         $interaction->respondWithMessage("Processing your request... " . $runsChannel?->channel_link ?? '', true);
 
         DB::transaction(function () use ($interaction, $runsChannel) {
-            $options = $interaction->data->options;
-            $boostersName = explode('-', $options['boosters_name']->value);
+            $options       = $interaction->data->options;
+            $boostersName  = explode('-', $options['boosters_name']->value);
             $boostersCount = count($boostersName);
 
-            $runPot = (int) $options['run_pot']->value;
+            $runPot   = (int) $options['run_pot']->value;
             $runPrice = number_format($runPot / $boostersCount, 2);
-            $runUnit = $options['unit']->value ?? '?';
+            $runUnit  = $options['unit']->value ?? '?';
 
             $run = Run::create([
-                'count' => $options['run_count']->value,
-                'level' => $options['run_level']->value,
-                'dungeons' => $options['dungeons']->value,
-                'boosters' => $boostersName,
+                'count'          => $options['run_count']->value,
+                'level'          => $options['run_level']->value,
+                'dungeons'       => $options['dungeons']->value,
+                'boosters'       => $boostersName,
                 'boosters_count' => $boostersCount,
-                'price' => $runPrice,
-                'unit' => $runUnit,
-                'pot' => $runPot,
-                'adv' => $options['advertiser']->value,
-                'note' => $options['additional_note']?->value,
-                'user_id' => $this->authUser->id,
-                'channel_id' => $runsChannel->id,
-                'dmessage_id' => null,
-                'dmessage_link' => null,
+                'price'          => $runPrice,
+                'unit'           => $runUnit,
+                'pot'            => $runPot,
+                'adv'            => $options['advertiser']->value,
+                'note'           => $options['additional_note']?->value,
+                'user_id'        => $this->authUser->id,
+                'channel_id'     => $runsChannel->id,
+                'dmessage_id'    => null,
+                'dmessage_link'  => null,
             ]);
 
             $this->announceRuns($run, $runsChannel, $interaction);
@@ -698,17 +724,18 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function editRunWithCommand($interaction) {
+    protected function editRunWithCommand($interaction)
+    {
         $runsChannel = Channel::where('channel_name', 'runs')->first();
         $interaction->respondWithMessage("Processing your request... " . $runsChannel->channel_link ?? '', true);
 
         DB::transaction(function () use ($interaction) {
             $options = $interaction->data->options;
 
-            $boostersName = explode('-', $options['boosters_name']->value);
+            $boostersName  = explode('-', $options['boosters_name']->value);
             $boostersCount = count($boostersName);
 
-            $runPot = (int) $options['run_pot']->value;
+            $runPot   = (int) $options['run_pot']->value;
             $runPrice = $runPot / $boostersCount;
             $runPrice = number_format($runPrice, 2);
 
@@ -721,18 +748,18 @@ class DiscordBotController extends Controller {
             if ($run) {
 
                 $runData = [
-                    'id' => $run->id,
-                    'count' => $options['run_count']->value,
-                    'level' => $options['run_level']->value,
-                    'dungeons' => $options['dungeons']->value,
-                    'boosters' => $boostersName,
+                    'id'             => $run->id,
+                    'count'          => $options['run_count']->value,
+                    'level'          => $options['run_level']->value,
+                    'dungeons'       => $options['dungeons']->value,
+                    'boosters'       => $boostersName,
                     'boosters_count' => $boostersCount,
-                    'price' => $runPrice,
-                    'unit' => $runUnit ?? '?',
-                    'pot' => $runPot,
-                    'adv' => $options['advertiser']->value,
-                    'note' => $options['additional_note']?->value,
-                    'created_at' => $run->created_at,
+                    'price'          => $runPrice,
+                    'unit'           => $runUnit ?? '?',
+                    'pot'            => $runPot,
+                    'adv'            => $options['advertiser']->value,
+                    'note'           => $options['additional_note']?->value,
+                    'created_at'     => $run->created_at,
                 ];
 
                 $this->updateRun($run, $runData);
@@ -741,22 +768,25 @@ class DiscordBotController extends Controller {
         }, 3);
     }
 
-    protected function removeRunWithCommand($interaction) {
+    protected function removeRunWithCommand($interaction)
+    {
         $interaction->respondWithMessage("Processing your request...", true);
     }
 
-    protected function showRunWithCommand($interaction) {
+    protected function showRunWithCommand($interaction)
+    {
         $interaction->respondWithMessage("Processing your request...", true);
     }
 
-    protected function changePaidRun($run, $reaction) {
+    protected function changePaidRun($run, $reaction)
+    {
 
         if ($run->paid == 1) {
             return;
         }
 
-        $run->paid = 1;
-        $run->paid_at = now();
+        $run->paid     = 1;
+        $run->paid_at  = now();
         $run->pay_user = $this->authUser->id;
         $run->save();
 
@@ -793,9 +823,10 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function sendToPaidChannel($messageBuilder) {
+    protected function sendToPaidChannel($messageBuilder)
+    {
         $paidChannel = Channel::where('channel_name', 'paid_channel')->first();
-        $channel = $this->discord->getChannel($paidChannel->dchannel_id);
+        $channel     = $this->discord->getChannel($paidChannel->dchannel_id);
 
         if ($channel) {
             $promise = $channel->sendMessage($messageBuilder);
@@ -807,7 +838,8 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function announceRuns($runData, $runsChannel) {
+    protected function announceRuns($runData, $runsChannel)
+    {
 
         if ($runsChannel) {
 
@@ -815,13 +847,15 @@ class DiscordBotController extends Controller {
             if ($channel) {
                 $promise = $channel->sendMessage('', false, $this->runsTemplate($runData));
 
-                $promise->then(function ($message) use ($runData, $runsChannel) {
-                    $runData->channel_id = $runsChannel->id;
-                    $runData->dmessage_id = $message->id;
+                return $promise->then(function ($message) use ($runData, $runsChannel) {
+                    $runData->channel_id    = $runsChannel->id;
+                    $runData->dmessage_id   = $message->id;
                     $runData->dmessage_link = "https://discord.com/channels/" . $message->guild_id . "/" . $message->channel_id . "/" . $message->id;
                     $runData->save();
 
+                    return $runData;
                 }, function ($e) {
+                    return null;
                     Log::error($e);
                 });
             }
@@ -829,7 +863,8 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function runsText($runData) {
+    protected function runsText($runData)
+    {
 
         if (gettype($runData) != 'object') {
             $runData = (object) $runData;
@@ -855,7 +890,8 @@ class DiscordBotController extends Controller {
         return $text;
     }
 
-    protected function runsTemplate($runData) {
+    protected function runsTemplate($runData)
+    {
 
         $text = $this->runsText($runData);
 
@@ -872,25 +908,28 @@ class DiscordBotController extends Controller {
         return $embed;
     }
 
-    protected function findRun($reaction) {
+    protected function findRun($reaction)
+    {
         $run = Run::where('dmessage_id', $reaction->message_id)->first();
         return $run;
     }
 
-    protected function handleReaction($reaction, $run) {
+    protected function handleReaction($reaction, $run)
+    {
         switch ($reaction?->emoji) {
-        case '✅':
-            if ($run) {
-                $this->changePaidRun($run, $reaction);
-            }
-            break;
-        default:
-            # code...
-            break;
+            case '✅':
+                if ($run) {
+                    $this->changePaidRun($run, $reaction);
+                }
+                break;
+            default:
+                # code...
+                break;
         }
     }
 
-    protected function showBalance($message, $isToday = false) {
+    protected function showBalance($message, $isToday = false)
+    {
 
         $username = $this->authUser->username;
 
@@ -902,13 +941,19 @@ class DiscordBotController extends Controller {
         }, ARRAY_FILTER_USE_KEY);
 
         if (empty($nicknames)) {
-            $message->reply("You dont have account balance!");
+            $message->reply("You dont have balance account!");
             return false;
         }
 
-        foreach ($nicknames as $nickname => $nicknames) {
-            $rows->where(function ($query) use ($nicknames) {
-                foreach ($nicknames as $nickname) {
+        foreach ($nicknames as $nickname => $nicknamesArray) {
+
+            if (empty($nicknamesArray)) {
+                $message->reply("You dont have balance account!");
+                return false;
+            }
+
+            $rows->where(function ($query) use ($nicknamesArray) {
+                foreach ($nicknamesArray as $nickname) {
                     $query->orWhereJsonContains('boosters', $nickname);
                 }
             });
@@ -916,7 +961,7 @@ class DiscordBotController extends Controller {
 
         if ($isToday) {
             $startTime = $this->customDay()['startTime'];
-            $endTime = $this->customDay()['endTime'];
+            $endTime   = $this->customDay()['endTime'];
             $rows->whereBetween('created_at', [$startTime, $endTime]);
         }
 
@@ -924,7 +969,7 @@ class DiscordBotController extends Controller {
 
         foreach ($rows as $row) {
             $boostersNames = json_decode($row->boosters);
-            $cutCount = 0;
+            $cutCount      = 0;
             foreach ($boostersNames as $boostersName) {
                 if (in_array($boostersName, $nicknames)) {
                     $cutCount++;
@@ -995,11 +1040,16 @@ class DiscordBotController extends Controller {
         $message->reply($messageBuilder);
     }
 
-    protected function unPaids($message) {
+    protected function unPaids($message)
+    {
 
-        $runs = Run::where('paid', 0)->cursor();
+        $groupBy = $this->extractOrderBy($message);
 
-        $text = $this->runLogs($runs);
+        $runs = Run::where('paid', 0)
+            ->with('user')
+            ->get();
+
+        $text = $this->runLogs($runs, $groupBy);
 
         $filePath = 'unpaid_boosts.txt';
         file_put_contents($filePath, $text);
@@ -1010,11 +1060,18 @@ class DiscordBotController extends Controller {
         $message->reply($messageBuilder);
     }
 
-    protected function myAdds($message) {
+    protected function myAdds($message)
+    {
+
+        $groupBy = $this->extractOrderBy($message);
+
         $user = User::find($this->authUser->id);
-        $runs = $user->runs()->where('paid', 0)->cursor();
+        $runs = $user->runs()
+            ->with('user')
+            ->where('paid', 0)
+            ->get();
 
-        $text = $this->runLogs($runs);
+        $text = $this->runLogs($runs, $groupBy);
 
         $filePath = 'unpaid_boosts.txt';
         file_put_contents($filePath, $text);
@@ -1025,50 +1082,108 @@ class DiscordBotController extends Controller {
         $message->reply($messageBuilder);
     }
 
-    protected function runLogs($runs) {
-        $text = sprintf("%-3s | %-20s | %-6s | %-8s | %-45s | %-20s | %-12s\n",
-            "ID", "Info", "Pot", "Cut", "Boosters", 'Dungeons', "Date");
-        $text .= str_repeat("-", 132) . "\n";
+    protected function extractOrderBy($message)
+    {
+        $messageContent = $message->content;
+        $messageArray   = explode(' ', $messageContent);
+        $param          = null;
 
-        foreach ($runs as $run) {
-            $boostersName = collect($run->boosters)->flatMap(fn($booster) => [ucfirst($booster)])->join('-');
+        if (count($messageArray) > 1) {
+            $param = $messageArray[1];
 
-            $unit = strtoupper($run->unit);
-            $advName = ucfirst($run->adv);
-            $date = Carbon::parse($run->updated_at)->format('m-d H:i');
+            $params = collect(['unit', 'adv', 'count', 'level', 'user']);
 
-            $text .= sprintf("%-3s | %-20s | %-6s | %-8s | %-45s | %-20s | %-12s\n",
-                $run->id, "{$run->count}x{$run->level} {$advName}",
-                "{$run->pot}{$unit}", "{$run->price}{$unit}",
-                $boostersName, $run->dungeons, $date);
+            if (! $params->contains($param)) {
+                $param = '';
+            }
+
+            if ($param == 'user') {
+                $param = 'user.name';
+            }
         }
 
-        $text .= str_repeat("-", 132) . "\n";
+        return $param;
+    }
+
+    protected function runLogs($runs, $groupBy = '')
+    {
+        if (! empty($groupBy)) {
+            $grouped = $runs->groupBy($groupBy);
+        } else {
+            $grouped = collect([$runs]);
+        }
+
+        $textFormat = "%-3s | %-20s | %-13s | %-6s | %-8s | %-45s | %-20s | %-12s\n";
+
+        $text = sprintf($textFormat,
+            "ID", "Info", "User", "Pot", "Cut", "Boosters", 'Dungeons', "Date");
+        $text .= str_repeat("-", 150) . "\n";
+
+        foreach ($grouped as $groupKey => $groupRuns) {
+            $groupBySum = 0;
+            if (! empty($groupBy)) {
+
+                $groupByTitle = $groupBy == 'user.name' ? 'User' : $groupBy;
+
+                $text .= ucfirst($groupByTitle) . ": " . ucfirst($groupKey) . "\n";
+            }
+
+            foreach ($groupRuns as $run) {
+                $boostersName = collect($run->boosters)->flatMap(fn($booster) => [ucfirst($booster)])->join('-');
+                $unit         = strtoupper($run->unit);
+
+                $advName = ucfirst($run->adv);
+
+                $date = Carbon::parse($run->updated_at)->format('m-d H:i');
+
+                $text .= sprintf($textFormat,
+                    $run->id, "{$run->count}x{$run->level} {$advName}", ucfirst($run->user->name),
+                    "{$run->pot}{$unit}", "{$run->price}{$unit}",
+                    $boostersName, $run->dungeons, $date);
+
+            }
+
+            if (! empty($groupBy)) {
+
+                $sumT  = $groupRuns->whereIn('unit', ['t', 'T'])->sum('pot');
+                $sumK  = $groupRuns->whereIn('unit', ['k', 'K'])->sum('pot');
+                $count = $groupRuns->count();
+
+                $text .= "\n" . sprintf($textFormat,
+                    '#', "Total: ", $count,
+                    "{$sumT}T", "{$sumK}K",
+                    '-', '-', '-');
+            }
+
+            $text .= str_repeat("-", 150) . "\n";
+        }
 
         return $text;
     }
 
-    protected function customDay() {
+    protected function customDay()
+    {
         $now = Carbon::now();
 
         if ($now->hour < 7) {
             $startTime = Carbon::yesterday()->setHour(7)->setMinute(0)->setSecond(0);
-            $endTime = Carbon::today()->setHour(6)->setMinute(59)->setSecond(59);
+            $endTime   = Carbon::today()->setHour(6)->setMinute(59)->setSecond(59);
         } else {
             $startTime = Carbon::today()->setHour(7)->setMinute(0)->setSecond(0);
-            $endTime = Carbon::tomorrow()->setHour(6)->setMinute(59)->setSecond(59);
+            $endTime   = Carbon::tomorrow()->setHour(6)->setMinute(59)->setSecond(59);
         }
 
         $startTime = $startTime->format('Y-m-d H:i:s');
-        $endTime = $endTime->format('Y-m-d H:i:s');
+        $endTime   = $endTime->format('Y-m-d H:i:s');
 
         return [
             'startTime' => $startTime,
-            'endTime' => $endTime,
+            'endTime'   => $endTime,
         ];
     }
 
-    private function sendDbBackup($message) {
+    private function sendDbBackup($message)
+    {
 
         if ($this->authUser->username != 'funn3r') {
             return false;
@@ -1100,11 +1215,12 @@ class DiscordBotController extends Controller {
 
     }
 
-    protected function announcePaidRuns() {
+    protected function announcePaidRuns()
+    {
         $paidChannel = Channel::where('channel_name', 'paid_channel')->first();
-        $channel = $this->discord->getChannel($paidChannel->dchannel_id);
+        $channel     = $this->discord->getChannel($paidChannel->dchannel_id);
 
-        $runs = Run::where('paid', 1)->get();
+        $runs  = Run::where('paid', 1)->get();
         $delay = 0;
         foreach ($runs as $run) {
 
@@ -1144,14 +1260,20 @@ class DiscordBotController extends Controller {
         }
     }
 
-    protected function sendPaidToUser($runData) {
+    protected function sendPaidToUser($runData)
+    {
+
+        if ($this->timerRefrence instanceof TimerInterface) {
+            $this->discord->getLoop()->cancelTimer($this->timerRefrence);
+        }
+
         $boosters = $runData->boosters;
-        $users = User::all();
+        $users    = User::all();
 
         $boostersPayment = [];
         foreach ($this->nicknames as $username => $nicknameArray) {
 
-            if (!$nicknameArray) {
+            if (! $nicknameArray) {
                 continue;
             }
 
@@ -1166,6 +1288,8 @@ class DiscordBotController extends Controller {
             }
         }
 
+        $paidInfo = [];
+
         foreach ($boostersPayment as $boosterName => $boosterCount) {
             $user = $users->where('username', $boosterName)->first();
 
@@ -1175,21 +1299,65 @@ class DiscordBotController extends Controller {
                 $text .= "**Cut**: " . ((int) $runData->price * $boosterCount) . ucfirst($runData->unit) . "\n";
                 $text .= $runData->dmessage_link;
                 $user->sendMessage($text);
+
             }, function ($error) {
                 return false;
             });
+
+            $totalCutK = 0;
+            $totalCutT = 0;
+
+            if (strtolower($runData->unit) == 't') {
+                $totalCutT += (int) $runData->price * $boosterCount;
+            } else if (strtolower($runData->unit) == 'k') {
+                $totalCutK += (int) $runData->price * $boosterCount;
+            }
+
+            if (isset($paidInfo[$boosterName])) {
+                $paidInfo[$boosterName] = [
+                    'totalCutT' => $paidInfo[$boosterName]['totalCutT'] + $totalCutT,
+                    'totalCutK' => $paidInfo[$boosterName]['totalCutK'] + $totalCutK,
+                ];
+
+            } else {
+                $paidInfo[$boosterName] = [
+                    'totalCutT' => $totalCutT,
+                    'totalCutK' => $totalCutK,
+                    'duser_id'  => $user->duser_id,
+                ];
+
+            }
         }
+
+        if ($oldPaidInfo = Cache::get('paidInfo')) {
+            Cache::forget('paidInfo');
+
+            foreach ($oldPaidInfo as $oldPaidUser => $oldPaidValue) {
+                if (isset($paidInfo[$oldPaidUser])) {
+                    $paidInfo[$oldPaidUser]['totalCutT'] += $oldPaidValue['totalCutT'];
+                    $paidInfo[$oldPaidUser]['totalCutK'] += $oldPaidValue['totalCutK'];
+                } else {
+                    $paidInfo[$oldPaidUser] = [
+                        'totalCutT' => $oldPaidValue['totalCutT'],
+                        'totalCutK' => $oldPaidValue['totalCutK'],
+                        'duser_id'  => $oldPaidValue['duser_id'],
+                    ];
+                }
+            }
+
+        }
+
+        Cache::put('paidInfo', $paidInfo, 60);
+
+        $this->timerRefrence = $this->discord->getLoop()->addTimer(60, function () use ($paidInfo) {
+            $this->sendTotalPaid($paidInfo);
+            Log::info('Timer Executed');
+        });
     }
 
-    protected function addNicknames($message) {
+    protected function addNicknames($message)
+    {
         $messageContent = $message->content;
-
-        $pattern = '/^!anick .+ [A-z0-9\-]+$/';
-
-        if (!preg_match($pattern, $messageContent)) {
-            $message->reply('Invalid command format !arun <runid> <nicknames>');
-            return false;
-        }
 
         $messageContent = str($messageContent)->replace('!anick', '');
 
@@ -1201,6 +1369,11 @@ class DiscordBotController extends Controller {
         $nicknames = explode('-', $nicknames);
 
         $user = User::whereUsername($username)->first();
+
+        if (! $user) {
+            return $message->reply("The username is invalid");
+        }
+
         $userNicknames = (array) $user->nicknames;
 
         $newNicknames = collect(array_merge($userNicknames, $nicknames))->unique()->toArray();
@@ -1214,8 +1387,9 @@ class DiscordBotController extends Controller {
         $message->reply($text);
     }
 
-    protected function getNicknames() {
-        if (!$nicknames = Cache::get('nicknames')) {
+    protected function getNicknames()
+    {
+        if (! $nicknames = Cache::get('nicknames')) {
             $nicknames = User::pluck('nicknames', 'username')->toArray();
             Cache::put('nicknames', $nicknames, now()->addDay());
         }
@@ -1223,9 +1397,23 @@ class DiscordBotController extends Controller {
         return $nicknames;
     }
 
-    protected function clearCaches($message) {
+    protected function clearCaches($message)
+    {
         Cache::forget('nicknames');
-
         $message->reply('Caches Cleared!');
+    }
+
+    protected function sendTotalPaid($paidInfo)
+    {
+        foreach ($paidInfo as $user => $paidData) {
+            $this->discord->users->fetch($paidData['duser_id'])->then(function ($user) use ($paidData) {
+                $text = "**Latest Paids:**\n";
+                $text .= "💵 " . $paidData['totalCutT'] . "T\n";
+                $text .= "🪙 " . $paidData['totalCutK'] . "K";
+                $user->sendMessage($text);
+            })->otherwise(function ($error) {
+                Log::info($error);
+            });
+        }
     }
 }
