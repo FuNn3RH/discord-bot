@@ -10,11 +10,6 @@ Route::get('/', function () {
     test();
 });
 
-function test()
-{
-    $array[] = (object) ['salam'];
+function test() {
 
-    array_push($array, 'salam2');
-
-    dd($array);
 }
