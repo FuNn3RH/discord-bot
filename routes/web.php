@@ -11,6 +11,6 @@ Route::get('/', function () {
 });
 
 function test() {
-    dd('h');
+    dd('h2');
 
 }
