@@ -16,6 +16,7 @@ use Discord\WebSockets\Event;
 use Discord\WebSockets\Intents;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use React\EventLoop\Loop;
@@ -360,6 +361,12 @@ class DiscordBotController extends Controller {
                 'perm' => 10,
             ],
 
+            '!givemedbjson' => [
+                'callback' => [$this, 'sendDbJson'],
+                'usage' => 'giving the json backup of the runs',
+                'perm' => 10,
+            ],
+
             '!clearcaches' => [
                 'callback' => [$this, 'clearCaches'],
                 'usage' => 'Clears the caches',
@@ -369,6 +376,12 @@ class DiscordBotController extends Controller {
             '!help' => [
                 'callback' => [$this, 'commandsHelper'],
                 'usage' => 'Shows the list of the commands',
+            ],
+
+            '!importruns' => [
+                'callback' => [$this, 'importRuns'],
+                'usage' => 'Imports Runs by Json',
+                'perm' => 10,
             ],
 
             // '!announceallpaids' => ['callback' => [$this, 'announcePaidRuns']],
@@ -1322,6 +1335,31 @@ class DiscordBotController extends Controller {
         unlink($backupPath);
     }
 
+    private function sendDbJson($message) {
+
+        if ($this->authUser->username != 'funn3r') {
+            return false;
+        }
+
+        $runs = Run::withTrashed()->cursor();
+
+        $jsonData = [];
+        foreach ($runs as $run) {
+            $jsonData[] = $run->toArray();
+        }
+
+        $jsonOutput = json_encode($jsonData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        $backupPath = 'runs_discord-bot.json';
+        file_put_contents($backupPath, $jsonOutput);
+
+        $messageBuilder = MessageBuilder::new ()
+            ->addFile($backupPath, 'runs_discord-bot.json');
+        $message->reply($messageBuilder);
+
+        unlink($backupPath);
+    }
+
     protected function announcePaidRuns() {
         $paidChannel = Channel::where('channel_name', 'paid_channel')->first();
         $channel = $this->discord->getChannel($paidChannel->dchannel_id);
@@ -1545,6 +1583,25 @@ class DiscordBotController extends Controller {
         ]);
 
         $message->reply("The run is now part of <@{$user->duser_id}>'s payments.");
+
+    }
+
+    protected function importRuns($message) {
+        $filePath = public_path('runs_discord-bot.json');
+
+        if (file_exists($filePath)) {
+            $runsData = File::get($filePath);
+
+            $jsonData = json_decode($runsData);
+
+            foreach ($jsonData as $run) {
+                Run::create($run);
+            }
+
+            $message->reply("Runs Imported!");
+        } else {
+            $message->reply("Invalid Json!");
+        }
 
     }
 
