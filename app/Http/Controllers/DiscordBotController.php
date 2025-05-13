@@ -1592,7 +1592,7 @@ class DiscordBotController extends Controller {
         if (file_exists($filePath)) {
             $runsData = File::get($filePath);
 
-            $jsonData = json_decode($runsData);
+            $jsonData = json_decode($runsData, true);
 
             foreach ($jsonData as $run) {
                 Run::create($run);
