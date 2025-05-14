@@ -1095,6 +1095,8 @@ class DiscordBotController extends Controller {
 
         $rows = $rows->get();
 
+        $nicknames = $nicknames[$username];
+
         foreach ($rows as $row) {
             $boostersNames = json_decode($row->boosters);
             $cutCount = 0;

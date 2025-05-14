@@ -16,8 +16,8 @@ Route::get('/', function () {
 
 function test() {
 
-    $username = 'amirparse';
-    $isToday = true;
+    $username = 'kallagh';
+    $isToday = false;
 
     $rows = DB::table('runs')
         ->where('deleted_at', null);
@@ -65,10 +65,14 @@ function test() {
 
     $rows = $rows->get();
 
+    $nicknames = $nicknames[$username];
+
     foreach ($rows as $row) {
         $boostersNames = json_decode($row->boosters);
         $cutCount = 0;
+
         foreach ($boostersNames as $boostersName) {
+
             if (in_array($boostersName, $nicknames)) {
                 $cutCount++;
             }
