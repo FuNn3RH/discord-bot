@@ -1601,7 +1601,19 @@ class DiscordBotController extends Controller {
             $jsonData = json_decode($runsData, true);
 
             foreach ($jsonData as $run) {
-                DB::table('runs')->create($run);
+                // Convert any arrays to JSON strings
+                foreach ($run as $key => $value) {
+                    if (is_array($value)) {
+                        $run[$key] = json_encode($value);
+                    }
+
+                    // Fix datetime fields
+                    if (in_array($key, ['created_at', 'updated_at', 'paid_at', 'deleted_at']) && $value) {
+                        $run[$key] = \Carbon\Carbon::parse($value)->format('Y-m-d H:i:s');
+                    }
+                }
+
+                DB::table('runs')->insert($run);
             }
 
             $message->reply("Runs Imported!");
