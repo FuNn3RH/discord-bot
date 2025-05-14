@@ -373,6 +373,12 @@ class DiscordBotController extends Controller {
                 'perm' => 10,
             ],
 
+            '!deleteruntable' => [
+                'callback' => [$this, 'deleteRunTable'],
+                'usage' => 'DELETES ALL OF THE RUNS TABLE DATA',
+                'perm' => 10,
+            ],
+
             '!help' => [
                 'callback' => [$this, 'commandsHelper'],
                 'usage' => 'Shows the list of the commands',
@@ -693,7 +699,7 @@ class DiscordBotController extends Controller {
                     ->setContent('')
                     ->addEmbed($embed);
 
-                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($run, $authUser, $messageBuilder) {
+                $channel->messages->fetch($run->dmessage_id)->then(function ($discordMessage) use ($messageBuilder) {
                     $discordMessage->edit($messageBuilder)->then(function ($message) {
                         $message->react('❌');
                     });
@@ -1595,7 +1601,7 @@ class DiscordBotController extends Controller {
             $jsonData = json_decode($runsData, true);
 
             foreach ($jsonData as $run) {
-                Run::create($run);
+                DB::table('runs')->create($run);
             }
 
             $message->reply("Runs Imported!");
@@ -1603,6 +1609,12 @@ class DiscordBotController extends Controller {
             $message->reply("Invalid Json!");
         }
 
+    }
+
+    private function deleteRunTable($message) {
+        Run::truncate();
+
+        $message->reply('run Table flushed');
     }
 
 }
