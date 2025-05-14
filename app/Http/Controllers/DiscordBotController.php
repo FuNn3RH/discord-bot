@@ -373,11 +373,11 @@ class DiscordBotController extends Controller {
                 'perm' => 10,
             ],
 
-            '!deleteruntable' => [
-                'callback' => [$this, 'deleteRunTable'],
-                'usage' => 'DELETES ALL OF THE RUNS TABLE DATA',
-                'perm' => 10,
-            ],
+            // '!deleteruntable' => [
+            //     'callback' => [$this, 'deleteRunTable'],
+            //     'usage' => 'DELETES ALL OF THE RUNS TABLE DATA',
+            //     'perm' => 10,
+            // ],
 
             '!help' => [
                 'callback' => [$this, 'commandsHelper'],
