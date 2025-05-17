@@ -609,7 +609,7 @@ class DiscordBotController extends Controller {
         $boostersCount = count($runBoosters);
 
         $runPrice = $runPot / $boostersCount;
-        $runPrice = number_format($runPrice, 2);
+        $runPrice = number_format($runPrice, 2, '.', '');
 
         // note
         $runNote = '';
@@ -761,7 +761,7 @@ class DiscordBotController extends Controller {
             $boostersCount = count($runBoosters);
 
             $runPrice = $runPot / $boostersCount;
-            $runPrice = number_format($runPrice, 2);
+            $runPrice = number_format($runPrice, 2, '.', '');
 
             // note
             $runNote = '';
@@ -838,7 +838,7 @@ class DiscordBotController extends Controller {
             $boostersCount = count($boostersName);
 
             $runPot = (int) $options['run_pot']->value;
-            $runPrice = number_format($runPot / $boostersCount, 2);
+            $runPrice = number_format($runPot / $boostersCount, 2, '.', '');
             $runUnit = $options['unit']->value ?? '?';
 
             $run = Run::create([
@@ -875,7 +875,7 @@ class DiscordBotController extends Controller {
 
             $runPot = (int) $options['run_pot']->value;
             $runPrice = $runPot / $boostersCount;
-            $runPrice = number_format($runPrice, 2);
+            $runPrice = number_format($runPrice, 2, '.', '');
 
             $runUnit = $options['unit']->value;
 
